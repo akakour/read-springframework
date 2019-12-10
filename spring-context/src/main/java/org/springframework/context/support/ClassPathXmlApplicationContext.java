@@ -139,8 +139,10 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 			throws BeansException {
 
 		super(parent);
+		//不重要： --> 设置配置文件路由
 		setConfigLocations(configLocations);
 		if (refresh) {
+			//极其重要： --> IOC核心方法入口 --> 刷新beanfactory
 			refresh();
 		}
 	}
