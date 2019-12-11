@@ -37,6 +37,14 @@ import org.springframework.util.StringUtils;
  * @see org.springframework.beans.factory.support.RootBeanDefinition
  * @see org.springframework.beans.factory.support.ChildBeanDefinition
  */
+
+/**
+ * 每一个BeanDefinition对象有一个BeanDefinitionHolder对象就行封装
+ * <br/>有3个属性：beanDefinition，beanName，aliases数组
+ * <br/>其中前两个属性尤为重要：
+ * <br/>1. beanDefinition包含了每个bean标签的所有元素/子标签的信息
+ * <br/>2. beanname是这个bean标签的唯一识别，对应标签中的id元素
+ */
 public class BeanDefinitionHolder implements BeanMetadataElement {
 
 	private final BeanDefinition beanDefinition;

@@ -389,7 +389,9 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 			throws BeanDefinitionStoreException {
 
 		try {
+			//一般重要： --> jdk SAX解析思路 --> 把之前xml的inputstream流对象封装成doc对象
 			Document doc = doLoadDocument(inputSource, resource);
+			//极其重要：　--> 解析配置文件，从doc中读取节点新的方式将xml元信息封装成beandefinitions对象
 			int count = registerBeanDefinitions(doc, resource);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Loaded " + count + " bean definitions from " + resource);
