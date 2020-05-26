@@ -188,6 +188,7 @@ public abstract class PropertiesLoaderUtils {
 					props.loadFromXML(is);
 				}
 				else {
+					// 基于bean配置文件，加载所有的uri配置信息。 <beans xxxx>里面
 					props.load(is);
 				}
 			}

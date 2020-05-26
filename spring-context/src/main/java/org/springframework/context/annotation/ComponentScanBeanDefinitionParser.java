@@ -77,6 +77,12 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 	private static final String FILTER_EXPRESSION_ATTRIBUTE = "expression";
 
 
+	/**
+	 * 解析 </context:component-scan> 标签
+	 * @param element
+	 * @param parserContext
+	 * @return
+	 */
 	@Override
 	@Nullable
 	public BeanDefinition parse(Element element, ParserContext parserContext) {
@@ -86,10 +92,14 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 				ConfigurableApplicationContext.CONFIG_LOCATION_DELIMITERS);
 
 		// Actually scan for bean definitions and register them.
+		//1. 实例化一个扫描器
 		ClassPathBeanDefinitionScanner scanner = configureScanner(parserContext, element);
+		//2. 极其重要： 执行扫描，获取beandefinition，往beanfeatory里面注册beandefinition,
 		Set<BeanDefinitionHolder> beanDefinitions = scanner.doScan(basePackages);
+		//3. 极其重要： 顺带会注册BeanPostProcessor接口的实现，将在实例化中有大作用
 		registerComponents(parserContext.getReaderContext(), beanDefinitions, element);
 
+		// ？？？？
 		return null;
 	}
 
@@ -132,6 +142,12 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 				readerContext.getEnvironment(), readerContext.getResourceLoader());
 	}
 
+	/**
+	 * component-scan过程后，往context中注册 注解支撑的 beanpostprocessor beandefinition，实例化需要
+	 * @param readerContext
+	 * @param beanDefinitions
+	 * @param element
+	 */
 	protected void registerComponents(
 			XmlReaderContext readerContext, Set<BeanDefinitionHolder> beanDefinitions, Element element) {
 
@@ -145,9 +161,16 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 		// Register annotation config processors, if necessary.
 		boolean annotationConfig = true;
 		if (element.hasAttribute(ANNOTATION_CONFIG_ATTRIBUTE)) {
+			//<context:xxx>标签的时候，为true ------> 解析compent-scan的时候就会注册几个关键的beanpostprocessor
 			annotationConfig = Boolean.valueOf(element.getAttribute(ANNOTATION_CONFIG_ATTRIBUTE));
 		}
+		// 只有在context扫包的时候才会进入。。
 		if (annotationConfig) {
+			//极其重要： 完成对关键注解支撑的 beandefinitionpostprocessor 的注册bd：
+			//	 * ConfigurationClassPostProcessor  ------->  @configuration
+			//	 * AutowiredAnnotationBeanPostProcessor  --------> @Autowired
+			//	 * CommonAnnotationBeanPostProcessor   ------> @PreDestory....
+			//	 * EventListenerMethodProcessor  ------->  spring事件机制相关
 			Set<BeanDefinitionHolder> processorDefinitions =
 					AnnotationConfigUtils.registerAnnotationConfigProcessors(readerContext.getRegistry(), source);
 			for (BeanDefinitionHolder processorDefinition : processorDefinitions) {
@@ -155,6 +178,7 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 			}
 		}
 
+		// 发布事件  ----> 实际上这里是空事件，可能是冗余设计
 		readerContext.fireComponentRegistered(compositeDef);
 	}
 

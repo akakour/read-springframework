@@ -52,6 +52,12 @@ final class PostProcessorRegistrationDelegate {
 	}
 
 
+	/**
+	 * 两类接口 BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor的提前实例化。
+	 * 1. 排序 ：PriorityOrdered接口 > Ordered接口 > 无排序接口
+	 * @param beanFactory
+	 * @param beanFactoryPostProcessors
+	 */
 	public static void invokeBeanFactoryPostProcessors(
 			ConfigurableListableBeanFactory beanFactory, List<BeanFactoryPostProcessor> beanFactoryPostProcessors) {
 

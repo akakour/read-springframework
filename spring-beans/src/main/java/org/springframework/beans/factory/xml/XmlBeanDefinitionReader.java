@@ -327,12 +327,15 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 					"Detected cyclic loading of " + encodedResource + " - check your import definitions!");
 		}
 		try {
+			//1. .xml文件内容被封装在resource接口的文件流对象中
 			InputStream inputStream = encodedResource.getResource().getInputStream();
 			try {
+				//2. XML文件流封装成InputSource对象
 				InputSource inputSource = new InputSource(inputStream);
 				if (encodedResource.getEncoding() != null) {
 					inputSource.setEncoding(encodedResource.getEncoding());
 				}
+				//3. 及其重要：将文件流对象解析成BeanDefinition
 				return doLoadBeanDefinitions(inputSource, encodedResource.getResource());
 			}
 			finally {
@@ -389,9 +392,10 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 			throws BeanDefinitionStoreException {
 
 		try {
-			//一般重要： --> jdk SAX解析思路 --> 把之前xml的inputstream流对象封装成doc对象
+			// 一般重要： --> jdk SAX解析思路 --> 把之前xml的文件流对象封装成doc对象
+			// 到这一步，xml文件的内容被加载进doc对象，然后就可以利用doc对象操作xml数据
 			Document doc = doLoadDocument(inputSource, resource);
-			//极其重要：　--> 解析配置文件，从doc中读取节点新的方式将xml元信息封装成beandefinitions对象
+			// 极其重要：　--> 解析配置文件，从doc中读取节点的方式将xml元信息封装成beandefinitions对象
 			int count = registerBeanDefinitions(doc, resource);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Loaded " + count + " bean definitions from " + resource);
@@ -510,9 +514,13 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 * @see BeanDefinitionDocumentReader#registerBeanDefinitions
 	 */
 	public int registerBeanDefinitions(Document doc, Resource resource) throws BeanDefinitionStoreException {
+		// 又是委托模式，专人专事。 委托docReader去解析doc对象。和前面的委托xml解析器去解析xml资源对象一样
 		BeanDefinitionDocumentReader documentReader = createBeanDefinitionDocumentReader();
+		// 现有的bean Registry中，有多少个BD已经被注册（解析）
 		int countBefore = getRegistry().getBeanDefinitionCount();
+		// 及其重要：解析doc对象，并封装成BD，加入bean Registry，主要还是有个BDMap和BNList
 		documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
+		// 本次的doc对象中解析了多少个BD，由此可见，本方法肯定是会被循环调用的，因为spring可以有多个bean xml文件。
 		return getRegistry().getBeanDefinitionCount() - countBefore;
 	}
 

@@ -514,38 +514,46 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			// 不重要： 准备工作 --> 准备此上下文以进行刷新。
 			prepareRefresh();
 
-			// 极其重要： 委托模式 --> 告诉子类刷新内部bean工厂。
+			// 极其重要： 委托模式,解析xml标签，封装beandefinition，扫包，需要实例化的封装beandefinition
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
-			// Prepare the bean factory for use in this context.
+			// 配置spring上下文特征，比如那些类不需要自动装配
 			prepareBeanFactory(beanFactory);
 
 			try {
-				// Allows post-processing of the bean factory in context subclasses.
+				// 给子类预留的钩子方法。目前spring framework中没有实现
 				postProcessBeanFactory(beanFactory);
 
-				// Invoke factory processors registered as beans in the context.
+				// 提前注册并实例化了BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor，
+				// 				这些postprocessor基本上都是会在实例化过程用到
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
 				registerBeanPostProcessors(beanFactory);
 
-				// Initialize message source for this context.
+				// 为此上下文初始化消息源。国际化。
 				initMessageSource();
 
-				// Initialize event multicaster for this context.
+				// 初始化事件管理
 				initApplicationEventMulticaster();
 
-				// Initialize other special beans in specific context subclasses.
+				// 钩子方法，由子类去做一些事情。springboot中，利用这个方法完成了嵌入式tomcat容器的启动
 				onRefresh();
 
-				// Check for listener beans and register them.
+				// 注册扫描到的事件监听器
 				registerListeners();
 
-				// Instantiate all remaining (non-lazy-init) singletons.
+				// 实例化所有（非懒加载）单例bean。
+				/**
+				 * 1. bean实例化
+				 * 2. IOC
+				 * 3. 注解支持
+				 * 4. BeandefinitionPostProcessor接口的执行
+				 * 5. AOP的入口（代理的实现）
+				 */
 				finishBeanFactoryInitialization(beanFactory);
 
-				// Last step: publish corresponding event.
+				// 发布初始化完成后的事件
 				finishRefresh();
 			}
 
@@ -555,7 +563,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 							"cancelling refresh attempt: " + ex);
 				}
 
-				// Destroy already created singletons to avoid dangling resources.
+				// 销毁已创建的单例以避免资源悬空。
 				destroyBeans();
 
 				// Reset 'active' flag.
@@ -568,6 +576,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			finally {
 				// Reset common introspection caches in Spring's core, since we
 				// might not ever need metadata for singleton beans anymore...
+				// 释放无用缓存
 				resetCommonCaches();
 			}
 		}
@@ -625,6 +634,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	}
 
 	/**
+	 * 配置spring上下文特征
+	 * 比如，某些postprocessor需要自动装配，而某些则不需要
+	 *
 	 * Configure the factory's standard context characteristics,
 	 * such as the context's ClassLoader and post-processors.
 	 * @param beanFactory the BeanFactory to configure
@@ -684,11 +696,13 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	}
 
 	/**
-	 * Instantiate and invoke all registered BeanFactoryPostProcessor beans,
-	 * respecting explicit order if given.
+	 * 实例化并调用所有已注册的BeanFactoryPostProcessor Bean
+	 *
+	 *
 	 * <p>Must be called before singleton instantiation.
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+		//1.两类接口 BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor的提前实例化。涉及到排序
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found in the meantime

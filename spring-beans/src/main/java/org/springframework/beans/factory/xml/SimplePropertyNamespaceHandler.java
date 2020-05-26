@@ -65,6 +65,15 @@ public class SimplePropertyNamespaceHandler implements NamespaceHandler {
 		return null;
 	}
 
+	/**
+	 * <bean id="demo" class="com.akakour.lab.classpathApp.DemoBean" p:name="xml" p:integer="1"></bean>
+	 * 中p标签的解析
+	 * 最终封装成PropertyValues 对象，放入beandifination的MutablePropertyValues对象中
+	 * @param node
+	 * @param definition
+	 * @param parserContext
+	 * @return
+	 */
 	@Override
 	public BeanDefinitionHolder decorate(Node node, BeanDefinitionHolder definition, ParserContext parserContext) {
 		if (node instanceof Attr) {

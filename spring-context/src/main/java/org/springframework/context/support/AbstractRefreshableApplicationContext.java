@@ -140,10 +140,12 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 			closeBeanFactory();
 		}
 		try {
+			//bean xml配置模式默认DefaultListableBeanFactory beanfactory
 			DefaultListableBeanFactory beanFactory = createBeanFactory();
 			beanFactory.setSerializationId(getId());
+			//定制BeanFactory： 设置bean是否可以被覆盖，是否可以循环依赖
 			customizeBeanFactory(beanFactory);
-			//极其重要： --> 模板模式 --> 钩子方法，由子类去实现 解析xml
+			//极其重要： --> 模板模式 --> 钩子方法，由子类去实现
 			loadBeanDefinitions(beanFactory);
 			synchronized (this.beanFactoryMonitor) {
 				this.beanFactory = beanFactory;

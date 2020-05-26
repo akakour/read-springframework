@@ -107,14 +107,14 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 
 
 	/**
-	 * Locate the {@link NamespaceHandler} for the supplied namespace URI
-	 * from the configured mappings.
-	 * @param namespaceUri the relevant namespace URI
-	 * @return the located {@link NamespaceHandler}, or {@code null} if none found
+	 *  基于uri寻找对应的解析类
+	 * @param namespaceUri
+	 * @return
 	 */
 	@Override
 	@Nullable
 	public NamespaceHandler resolve(String namespaceUri) {
+		// 1. 这一步很重要；初始化的时候，加载所有的bean配置文件的NamespaceHandler和uri映射
 		Map<String, Object> handlerMappings = getHandlerMappings();
 		Object handlerOrClassName = handlerMappings.get(namespaceUri);
 		if (handlerOrClassName == null) {
@@ -124,15 +124,22 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 			return (NamespaceHandler) handlerOrClassName;
 		}
 		else {
+			//1. 获取类名
 			String className = (String) handlerOrClassName;
 			try {
+				//2. 获取类对象
 				Class<?> handlerClass = ClassUtils.forName(className, this.classLoader);
 				if (!NamespaceHandler.class.isAssignableFrom(handlerClass)) {
 					throw new FatalBeanException("Class [" + className + "] for namespace [" + namespaceUri +
 							"] does not implement the [" + NamespaceHandler.class.getName() + "] interface");
 				}
+				//3. 实例化，这些hamdler都是接口namespacehandler的实现类
 				NamespaceHandler namespaceHandler = (NamespaceHandler) BeanUtils.instantiateClass(handlerClass);
+				//4. 初始化NamespaceHandler（如果还有子标签，会实例化、注册相应子标签的解析类），生命周期
+				//namespaceHandler的生命周期：init -> parse(自定义标签用到，例context标签的component-scan)
+				//                                   decorate（默认标签做修饰的时候，例：bean标签的p标签）
 				namespaceHandler.init();
+				//5. 缓存
 				handlerMappings.put(namespaceUri, namespaceHandler);
 				return namespaceHandler;
 			}
@@ -148,7 +155,8 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 	}
 
 	/**
-	 * Load the specified NamespaceHandler mappings lazily.
+	 * 加载所有的bean配置文件的 NamespaceHandler 映射。 （用到时加载--懒加载）
+	 * @return
 	 */
 	private Map<String, Object> getHandlerMappings() {
 		Map<String, Object> handlerMappings = this.handlerMappings;

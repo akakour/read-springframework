@@ -413,11 +413,18 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 		return candidates;
 	}
 
+	/**
+	 * 递归找class文件，封装成scanbeandefinition对象
+	 * @param basePackage
+	 * @return
+	 */
 	private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
 		Set<BeanDefinition> candidates = new LinkedHashSet<>();
 		try {
+			//1. 模糊匹配class文件规则
 			String packageSearchPath = ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX +
 					resolveBasePackage(basePackage) + '/' + this.resourcePattern;
+			//2. 递归找class文件
 			Resource[] resources = getResourcePatternResolver().getResources(packageSearchPath);
 			boolean traceEnabled = logger.isTraceEnabled();
 			boolean debugEnabled = logger.isDebugEnabled();
@@ -427,15 +434,20 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 				}
 				if (resource.isReadable()) {
 					try {
+						//3. 将class文件元信息封装成MetadataReader对象
 						MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
+						//4. 判断MetadataReader对应的class类上是否含有 context标签定义的includeFilters容器中的注解
 						if (isCandidateComponent(metadataReader)) {
+							//5. 封装成Beandefinition 对象
 							ScannedGenericBeanDefinition sbd = new ScannedGenericBeanDefinition(metadataReader);
 							sbd.setResource(resource);
 							sbd.setSource(resource);
+							//6. 判断是否符合条件，不是抽象类，没有lookup注解等。。。
 							if (isCandidateComponent(sbd)) {
 								if (debugEnabled) {
 									logger.debug("Identified candidate component class: " + resource);
 								}
+								//7. 加入beandefinition 集合
 								candidates.add(sbd);
 							}
 							else {
@@ -516,7 +528,10 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	}
 
 	/**
-	 * Determine whether the given bean definition qualifies as candidate.
+	 *
+	 * 确定给定的bean定义是否符合候选条件。
+	 * 非抽象非lookup等。。
+	 *
 	 * <p>The default implementation checks whether the class is not an interface
 	 * and not dependent on an enclosing class.
 	 * <p>Can be overridden in subclasses.
