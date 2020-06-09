@@ -817,14 +817,23 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// Iterate over a copy to allow for init methods which in turn register new bean definitions.
 		// While this may not be part of the regular factory bootstrap, it does otherwise work fine.
+		// 1. 获取需要实例化的所有得bean对象   <--- beanDefinitionNames，list
 		List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
 
 		// Trigger initialization of all non-lazy singleton beans...
+		//2. 遍历，实例化所有非懒加载，非抽象的，单例的beandefinition
 		for (String beanName : beanNames) {
+			//2.1 父子bean合并（有parent属性的bean），拿到beanname对应的Beandefinition
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
+			//2.2 非抽象，非懒加载，单例
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
+				//2.3 判断是否是工厂bean（实现FactoryBean接口、继承了实现了FactoryBean接口的类）
 				if (isFactoryBean(beanName)) {
+					//2.3.1 如果是FactoryBean接口的，bean名字前加上"&"已是标记
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
+					/**
+					 * 一系列不明所以的骚操作。。。。。。
+					 */
 					if (bean instanceof FactoryBean) {
 						final FactoryBean<?> factory = (FactoryBean<?>) bean;
 						boolean isEagerInit;
@@ -837,22 +846,25 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 							isEagerInit = (factory instanceof SmartFactoryBean &&
 									((SmartFactoryBean<?>) factory).isEagerInit());
 						}
+						//2.3.1.2 如果是需要提前实例化的FactoryBean实现，就实例化。反之，将在实例化其子类的时候在实例化。
 						if (isEagerInit) {
 							getBean(beanName);
 						}
 					}
 				}
 				else {
+					//2.3.2 极其重要：实例化bean
 					getBean(beanName);
 				}
 			}
 		}
 
-		// Trigger post-initialization callback for all applicable beans...
+		// 3. 实例化完成以后，触发所有SmartInitializingSingleton接口bean的初始化后回调方法afterSingletonsInstantiated（）
 		for (String beanName : beanNames) {
 			Object singletonInstance = getSingleton(beanName);
 			if (singletonInstance instanceof SmartInitializingSingleton) {
 				final SmartInitializingSingleton smartSingleton = (SmartInitializingSingleton) singletonInstance;
+				// jdk安全校验
 				if (System.getSecurityManager() != null) {
 					AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
 						smartSingleton.afterSingletonsInstantiated();
