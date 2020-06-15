@@ -604,6 +604,8 @@ class ConstructorResolver {
 		}
 
 		Assert.state(argsToUse != null, "Unresolved factory method arguments");
+		// 以上内容都可以不用关注，方法调用的参数封装，传递等。
+		//关键是下面这句，instantiate(),最终显而易见的是肯定会利用反射来创建对象 method.invoke(方法名, 参数数组)
 		bw.setBeanInstance(instantiate(beanName, mbd, factoryBean, factoryMethodToUse, argsToUse));
 		return bw;
 	}

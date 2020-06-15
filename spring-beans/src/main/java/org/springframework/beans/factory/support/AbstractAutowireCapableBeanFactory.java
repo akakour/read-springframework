@@ -451,9 +451,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	//---------------------------------------------------------------------
 
 	/**
-	 * Central method of this class: creates a bean instance,
-	 * populates the bean instance, applies post-processors, etc.
-	 * @see #doCreateBean
+	 * 实例化bean的核心
+	 * 1. 实例化bean 对象
+	 * 2. 调用一系列 post-processor ，实现对特殊注解的支撑，完成bean对象的DI
+	 * @param beanName
+	 * @param mbd
+	 * @param args
+	 * @return
+	 * @throws BeanCreationException
 	 */
 	@Override
 	protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args)
@@ -464,9 +469,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		RootBeanDefinition mbdToUse = mbd;
 
-		// Make sure bean class is actually resolved at this point, and
-		// clone the bean definition in case of a dynamically resolved Class
-		// which cannot be stored in the shared merged bean definition.
+		//1. 给bean选择合适的class对象
 		Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
 		if (resolvedClass != null && !mbd.hasBeanClass() && mbd.getBeanClassName() != null) {
 			mbdToUse = new RootBeanDefinition(mbd);
@@ -475,6 +478,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Prepare method overrides.
 		try {
+			//2. 判断类的重载方法是否只有一个，如果只有一个会标记，后面就不需要根据参数类型匹配了。
 			mbdToUse.prepareMethodOverrides();
 		}
 		catch (BeanDefinitionValidationException ex) {
@@ -483,7 +487,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
-			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
+			//3. 一个冗余设计，目的是给spring 容器一个“机会”,可以让编码人员去编写某些postprocessor，以便于在真正的实例化之前操作这个beandefinition
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -495,6 +499,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			/**
+			 * 4. 极其重要，真正的开始实例化，获取bean instance
+			 * 		实例化bean总得来说分为两个步骤：创建bean instance（工厂方法或者自身构造方法） + 填充属性（大量的埋点 post-processor）
+			 * 			1）。如果有factory-method的 beandefinition，将有factory-bean	& factory-method 一起创建bean instance
+			 * 	  		2）。如果没有factory-method的 beandefinition，反射调用bean的构造方法 来创建一个bean instance，
+			 * 	  		但是这时候bean实例的 @Autowired @Value @Resource等注入对象都没有值
+			 * 	  				（1）。 有参构造器，需要包装传递参数，如果遇到依赖注入的对象（@Autowired修饰了构造方法），
+			 * 	  																			则会转而先去getbean(依赖对象)
+			 * 	  			     (2)。  默认的没有显示构造方法的，调用默认无参构造方法。即反射的 class.newInstance
+			 * 	  		3）。调用post-processor，填充@Autowired @Value @Resource等没有值得注入对象
+			 */
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
@@ -529,12 +544,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
 			throws BeanCreationException {
 
-		// Instantiate the bean.
+		// 1. Bean的包装对象，重点是这个wrapper里面将会有，beandefinition对象以及其instance对象
 		BeanWrapper instanceWrapper = null;
 		if (mbd.isSingleton()) {
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
+			/**
+			 * 2. 创建bean 包装类
+			 *
+			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		final Object bean = instanceWrapper.getWrappedInstance();
@@ -557,8 +576,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			}
 		}
 
-		// Eagerly cache singletons to be able to resolve circular references
-		// even when triggered by lifecycle interfaces like BeanFactoryAware.
+		// Eagerly cache singletons to be able to resolve circular references even when triggered by lifecycle interfaces like BeanFactoryAware.
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
 		if (earlySingletonExposure) {
@@ -1110,7 +1128,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @see #instantiateBean
 	 */
 	protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
-		// Make sure bean class is actually resolved at this point.
+		// 1. 再一次确保bean的Class对象有
 		Class<?> beanClass = resolveBeanClass(mbd, beanName);
 
 		if (beanClass != null && !Modifier.isPublic(beanClass.getModifiers()) && !mbd.isNonPublicAccessAllowed()) {
@@ -1118,11 +1136,18 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					"Bean class isn't public, and non-public access not allowed: " + beanClass.getName());
 		}
 
+		//2. ????
 		Supplier<?> instanceSupplier = mbd.getInstanceSupplier();
 		if (instanceSupplier != null) {
 			return obtainFromSupplier(instanceSupplier, beanName);
 		}
 
+		/**
+		 * 3. 如果beandefinition中有定义了factory-method，将交由给method手动创建bean instance。
+		 *    显而易见：
+		 *         （1）。 factory-method 创建instance，如果没有定义feactory-bean，则是本类的方法，反之是其他类的方法
+		 *         （2）。 通过方法来手动创建bean，jdk的反射，调用method.invoke(方法名，参数数组)，这里的参数数组传递是个难点，也可以在源码里看出对这个的大量处理
+		 */
 		if (mbd.getFactoryMethodName() != null) {
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}

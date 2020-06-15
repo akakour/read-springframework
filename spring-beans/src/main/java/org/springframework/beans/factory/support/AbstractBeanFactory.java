@@ -232,6 +232,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 	/**
 	 * 实例化bean，可能是单例，也有可能是多例
+	 * 极其重要
 	 * @param name the name of the bean to retrieve
 	 * @param requiredType the required type of the bean to retrieve
 	 * @param args arguments to use when creating a bean instance using explicit arguments
@@ -253,6 +254,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		 * 		三个层级缓存的设计是解决循环依赖问题
 		 * 		bean第一次实例化的时候不会存在一级缓存里。
 		 * 		但是实际IOC的过程中，bean自己可能不是自己实例化的，可能是其他bean DI的时候就已经实例化了本bean。
+		 * 		只有bean所有属性都被DI以后才算实例化完成，放入一级缓存
 		 */
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
@@ -282,7 +284,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			/**
-			 * 2. 是否有单独的BeanFactory，将有其他的BeanFactory去实例化
+			 * 3. 是否有单独的BeanFactory，将有其他的BeanFactory去实例化
 			 */
 			// Check if bean definition exists in this factory.
 			BeanFactory parentBeanFactory = getParentBeanFactory();
@@ -311,10 +313,13 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			try {
+				// 父子bean合并
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
+				// 检查是否是抽象bean
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
+				// 如果dependon有值，优先实例化 dependon 依赖的bean
 				String[] dependsOn = mbd.getDependsOn();
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
@@ -337,10 +342,13 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				// Create bean instance.
 				/**
 				 * 创建默认的 Singleton bean 单例
+				 * 绝大多数bean 实例化都会走这个
 				 */
 				if (mbd.isSingleton()) {
+					// lambada表达式，函数传参
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
+							//极其重要 实例化的核心方法。
 							return createBean(beanName, mbd, args);
 						}
 						catch (BeansException ex) {
@@ -370,6 +378,9 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
 				}
 
+				/**
+				 * 实例化自定义scpoe bean
+				 */
 				else {
 					String scopeName = mbd.getScope();
 					final Scope scope = this.scopes.get(scopeName);
@@ -1416,14 +1427,17 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			throws CannotLoadBeanClassException {
 
 		try {
+			//1. 基本上beandifibition都会有class属性值
 			if (mbd.hasBeanClass()) {
 				return mbd.getBeanClass();
 			}
+			//2. jdk 安全校验
 			if (System.getSecurityManager() != null) {
 				return AccessController.doPrivileged((PrivilegedExceptionAction<Class<?>>) () ->
 					doResolveBeanClass(mbd, typesToMatch), getAccessControlContext());
 			}
 			else {
+				// 3. 没有class属性下，将会按照默认规则做解析得到Class对象
 				return doResolveBeanClass(mbd, typesToMatch);
 			}
 		}
