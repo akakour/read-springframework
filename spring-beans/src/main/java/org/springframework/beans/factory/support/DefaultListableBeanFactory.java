@@ -829,11 +829,10 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
 				//2.3 判断是否是工厂bean（实现FactoryBean接口、继承了实现了FactoryBean接口的类）
 				if (isFactoryBean(beanName)) {
-					//2.3.1 如果是FactoryBean接口的，bean名字前加上"&"已是标记
+					//2.3.1 如果是FactoryBean接口的，bean名字前加上"&"标记才可以得到本bean，
+					                          // 要不然得到的FactoryBean接口 getObjectType方法发回的bean
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
-					/**
-					 * 一系列不明所以的骚操作。。。。。。
-					 */
+
 					if (bean instanceof FactoryBean) {
 						final FactoryBean<?> factory = (FactoryBean<?>) bean;
 						boolean isEagerInit;
@@ -846,7 +845,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 							isEagerInit = (factory instanceof SmartFactoryBean &&
 									((SmartFactoryBean<?>) factory).isEagerInit());
 						}
-						//2.3.1.2 如果是需要提前实例化的FactoryBean实现，就实例化。反之，将在实例化其子类的时候在实例化。
+						//2.3.1.2 如果是需要提前实例化的FactoryBean子接口SmartFactoryBean实现，就实例化。反之，将在实例化其子类的时候在实例化。
 						if (isEagerInit) {
 							getBean(beanName);
 						}
@@ -864,7 +863,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			Object singletonInstance = getSingleton(beanName);
 			if (singletonInstance instanceof SmartInitializingSingleton) {
 				final SmartInitializingSingleton smartSingleton = (SmartInitializingSingleton) singletonInstance;
-				// jdk安全校验
+				// jdk安全校验之后，再回调
 				if (System.getSecurityManager() != null) {
 					AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
 						smartSingleton.afterSingletonsInstantiated();

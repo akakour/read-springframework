@@ -251,10 +251,30 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 		/**
 		 * 1. 从一级缓存拿。
-		 * 		三个层级缓存的设计是解决循环依赖问题
+		 * （1）三个层级缓存的设计是解决循环依赖问题
 		 * 		bean第一次实例化的时候不会存在一级缓存里。
 		 * 		但是实际IOC的过程中，bean自己可能不是自己实例化的，可能是其他bean DI的时候就已经实例化了本bean。
 		 * 		只有bean所有属性都被DI以后才算实例化完成，放入一级缓存
+		 *  （2）单例A依赖B，B依赖A的情况：
+		 *      Step1. A getbean开始实例化，先从1/2/3缓存拿，没有,开始自己实例化，这时候将A beanname放入InCresteSingtenbean 容器中
+		 *      Step2. A的factory-method、有参构造,无参构造依次判断有误进行A的实例化，将A instance放入三级缓存，在InCresteSingtenbean中删除A，并设置提前暴露
+		 *      Strp3. 根据A类的metadata，post-processor判断A有没有@AutoWried注解，有，而且是B类，触发B类的getbean。。。
+		 *      Step4. 当B 注入A时候，由触发A的getbean，B放入三级缓存，从InCresteSingtenbean中删除B。这时候实例化A从缓存（三级缓存）中拿到“缺胳膊少腿”的A返回并且把A移到二级缓存。B实例化完成。
+		 *      Step5. B实例化完成。由于B属性已经全部DI完成，所以从三级缓存删除放入一级缓存。
+		 *      Step5. 由于A第一次实例化流程触发的B已经实例化完成，所以A中B属性也已经Di完成，将A从二级缓存删除，放入一级缓存。循环依赖完成
+		 *
+		 *  （3）Q：讲道理上面（2）的一三级缓存就可以解决循环依赖了，为什么还要二级缓存
+		 *      A: 1. 从三级缓存拿bean不是简单的map直接拿bean，源码上是通过post-processor去拿的bean，所以需要循环所有的post-processr，性能低
+		 *         2. 如果A依赖B，C；B依赖A；C依赖A。按照上面（2）的流程，B实例化完成将A移到二级缓存，C去拿A的时候，不需要去三级缓存拿，直接二建缓存map拿，性能高
+		 *        总之，是出于性能方面的考虑
+		 *
+		 * 	（4）只有单例无参改造bean才可以循环依赖，多例/构造方法注入等均无法循环依赖，因为
+		 * 	     （4.1）多例模式：由于是多例所以不知道给依赖哪个bean实例，spring直接不允许
+		 * 	     （4.2）有参改造循环依赖，由于A触发B的实例化是在A的createInstance时候，不是填充属性的时候（上记（2）.Step2）这时候InCresteSingtenbean还有A，当A第二次getbean，判断InCresteSingtenbean有A，直接报错
+		 *
+		 * 	（5）上记的一二三级缓存的例子中，实际情况不是这么简单的，比如B从3级缓存直接进入1级缓存的，也是要经过2级缓存。只是在整个spring流程里面，B可以在其他地方也被DI了，又被拿了一次，所以可能会进入2级缓存
+		 * 	   简而言之，只有整个类被di完毕了，属性填充完毕了才会被范进一级缓存
+		 *
 		 */
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
@@ -318,7 +338,6 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				// 检查是否是抽象bean
 				checkMergedBeanDefinition(mbd, beanName, args);
 
-				// Guarantee initialization of beans that the current bean depends on.
 				// 如果dependon有值，优先实例化 dependon 依赖的bean
 				String[] dependsOn = mbd.getDependsOn();
 				if (dependsOn != null) {
@@ -327,6 +346,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}
+						// 被depandon的bean会被单独记录起来
 						registerDependentBean(dep, beanName);
 						try {
 							//先实例化Dependon的bean
@@ -339,7 +359,6 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					}
 				}
 
-				// Create bean instance.
 				/**
 				 * 创建默认的 Singleton bean 单例
 				 * 绝大多数bean 实例化都会走这个
@@ -348,7 +367,9 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// lambada表达式，函数传参
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
-							//极其重要 实例化的核心方法。
+							/**
+							 * 极其重要 实例化的核心方法。
+							 */
 							return createBean(beanName, mbd, args);
 						}
 						catch (BeansException ex) {
@@ -369,10 +390,14 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// It's a prototype -> create a new instance.
 					Object prototypeInstance = null;
 					try {
+						// 也有个prototypesCurrentlyInCreation 容器记录是否正在创建
 						beforePrototypeCreation(beanName);
+						// 创建bean，同样也会依赖注入等操作，只是，返回的bean实例之后，不会像单例那样要加入一级缓存等
+												// 所以，多例Prototype的bean每次getbean都会new一个bean，即使是同一个线程里面
 						prototypeInstance = createBean(beanName, mbd, args);
 					}
 					finally {
+						// prototypesCurrentlyInCreation 中移除
 						afterPrototypeCreation(beanName);
 					}
 					bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
@@ -380,6 +405,16 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 				/**
 				 * 实例化自定义scpoe bean
+				 *
+				 * 如何 自定义scope？
+				 *  A： 原理：显然药王beanfactory的this.scopes注册一个自定义的scope 比如一个名为'AkakourScope'的scope的类比如AkakourScope.class
+				 *      Step1： class AkakourScope implements Scope，并且重写get(String name, ObjectFactory<?> objectFactory) 和 remove（），
+				 *              其中get(String name, ObjectFactory<?> objectFactory) 的objectFactory.getObject()返回的就是实例bean
+				 *      Step2：写一个类将上面的AkakourScope 注册进入this.scopes。比如 class RegisterScope implements BeanFactoryPostProcessor
+				 *            重写postProcessBeanFactory方法，
+				 *             beanFactory.registerScope("AkakourScope", new AkakourScope());
+				 *      Step3: 使用自定义scope
+				 *               @Scope("AkakourScope")
 				 */
 				else {
 					String scopeName = mbd.getScope();
@@ -388,12 +423,14 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						throw new IllegalStateException("No Scope registered for scope name '" + scopeName + "'");
 					}
 					try {
-						Object scopedInstance = scope.get(beanName, () -> {
+						Object scopedInstance = scope.get(beanName, () -> { // 这里就体现了，自定义scope需要重写scope的get方法，而且回调函数就是objectFactory.getObject()
+							// 加入prototypesCurrentlyInCreation容器
 							beforePrototypeCreation(beanName);
 							try {
 								return createBean(beanName, mbd, args);
 							}
 							finally {
+								// prototypesCurrentlyInCreation 中移除
 								afterPrototypeCreation(beanName);
 							}
 						});

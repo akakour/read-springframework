@@ -514,7 +514,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			// 不重要： 准备工作 --> 准备此上下文以进行刷新。
 			prepareRefresh();
 
-			// 极其重要： 委托模式,解析xml标签，封装beandefinition，扫包，需要实例化的封装beandefinition
+			/**
+			 * 	极其重要： 委托模式,解析xml标签，封装beandefinition，扫包，需要实例化的封装beandefinition
+ 			 */
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// 配置spring上下文特征，比如那些类不需要自动装配
@@ -524,7 +526,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 给子类预留的钩子方法。目前spring framework中没有实现
 				postProcessBeanFactory(beanFactory);
 
-				// 提前注册并实例化了BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor，
+				// 提前注册并实例化了BeanDefinitionRegistryPostProcessor、
+				//                  BeanFactoryPostProcessor
 				// 				这些postprocessor基本上都是会在实例化过程用到
 				invokeBeanFactoryPostProcessors(beanFactory);
 
@@ -543,9 +546,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 注册扫描到的事件监听器
 				registerListeners();
 
-				// 实例化所有（非懒加载）单例bean。
 				/**
-				 * 1. bean实例化
+				 * 实例化所有（非懒加载）单例bean。
+				 * 1. bean实例化 三级缓存解决循环依赖
 				 * 2. IOC
 				 * 3. 注解支持
 				 * 4. BeandefinitionPostProcessor接口的执行

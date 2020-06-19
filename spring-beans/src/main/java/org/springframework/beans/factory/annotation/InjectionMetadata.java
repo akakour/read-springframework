@@ -118,6 +118,7 @@ public class InjectionMetadata {
 	 */
 	public abstract static class InjectedElement {
 
+		//field 和 method的公共顶级父类
 		protected final Member member;
 
 		protected final boolean isField;

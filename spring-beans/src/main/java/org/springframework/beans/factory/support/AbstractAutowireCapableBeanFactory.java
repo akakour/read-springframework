@@ -487,7 +487,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
-			//3. 一个冗余设计，目的是给spring 容器一个“机会”,可以让编码人员去编写某些postprocessor，以便于在真正的实例化之前操作这个beandefinition
+			//3. 一个埋点设计，目的是给spring 容器一个“机会”,可以让编码人员去编写某些postprocessor，以便于在真正的实例化之前操作这个beandefinition
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -552,10 +552,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (instanceWrapper == null) {
 			/**
 			 * 2. 创建bean 包装类
-			 *
+			 *   （1）。根据bean的factory-method创建
+			 *   （2）。根据构造方法创建
+			 *         1）。有@Autowired 修饰的构造方法
+			 *         2）。普通构造方法
 			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
+		// final Object bean 是 被包装的instance实例
 		final Object bean = instanceWrapper.getWrappedInstance();
 		Class<?> beanType = instanceWrapper.getWrappedClass();
 		if (beanType != NullBean.class) {
@@ -566,6 +570,18 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
 				try {
+					/**
+					 * 3。 极其重要
+					 * 对每个beandefinition去执行 MergedBeanDefinitionPostProcessor 实现类的 postProcessMergedBeanDefinition 方法
+					 *   （1）。重点是AutowiredAnnotationBeanPostProcessor 和 CommonAnnotationBeanPostProcessor 这两个实现类
+					 *         前者是对 @Autowired @Value注解的支撑，后者是@PostConstruct @PreDestory注解的支持
+					 *   （2）。这里的支撑的具体代码意思是： 对每个beandefinition依次调用（先后顺序是在主流程最开始的地方 注册实例化这些post-processor的时候有排序 PkOrder>order>普通）
+					 *    postProcessMergedBeanDefinition 方法，该方法不同的 MergedBeanDefinitionPostProcessor 侧重点不同。
+					 *    其中AutowiredAnnotationBeanPostProcessor 和 CommonAnnotationBeanPostProcessor 的侧重点是：
+					 *              解析BeanDefinition 的class信息，扫描到对应的注解，封装成对象，收集到mbd中以便于第 4 步中进行bean填充。
+					 *  <------ 注意的是，到这里为止，bean对象以及被创建了，但是里面具体的元素并没有填充，特别是
+					 *    		@Autowired @Value @Resource等依赖注入对象还没有DI。所以第3步是收集，第4步DI。
+					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -577,6 +593,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		// Eagerly cache singletons to be able to resolve circular references even when triggered by lifecycle interfaces like BeanFactoryAware.
+		//4. 是否提前暴露   为了解决循环依赖问题，这里就需要整个过程串起来理解，比较难
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
 		if (earlySingletonExposure) {
@@ -590,6 +607,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Initialize the bean instance.
 		Object exposedObject = bean;
 		try {
+			/**
+			 * 5. 极其重要
+			 *
+			 */
 			populateBean(beanName, mbd, instanceWrapper);
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
@@ -1048,17 +1069,25 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
-	 * Apply MergedBeanDefinitionPostProcessors to the specified bean definition,
-	 * invoking their {@code postProcessMergedBeanDefinition} methods.
-	 * @param mbd the merged bean definition for the bean
-	 * @param beanType the actual type of the managed bean instance
-	 * @param beanName the name of the bean
-	 * @see MergedBeanDefinitionPostProcessor#postProcessMergedBeanDefinition
+	 * 对每个beandefinition去执行 MergedBeanDefinitionPostProcessor 实现类的 postProcessMergedBeanDefinition 方法
+	 *   （1）。重点是AutowiredAnnotationBeanPostProcessor 和 CommonAnnotationBeanPostProcessor 这两个实现类
+	 *         前者是对 @Autowired @Value注解的支撑，后者是@PostConstruct @PreDestory注解的支持
+	 *   （2）。这里的支撑的具体代码意思是： 对每个beandefinition依次调用（先后顺序是在主流程最开始的地方 注册实例化这些post-processor的时候有排序 PkOrder>order>普通）
+	 *    postProcessMergedBeanDefinition 方法，该方法不同的 MergedBeanDefinitionPostProcessor 侧重点不同。
+	 *    其中AutowiredAnnotationBeanPostProcessor 和 CommonAnnotationBeanPostProcessor 的侧重点是：
+	 *              解析BeanDefinition 的class信息，扫描到对应的注解，封装成对象，收集到mbd中。
 	 */
 	protected void applyMergedBeanDefinitionPostProcessors(RootBeanDefinition mbd, Class<?> beanType, String beanName) {
+		//1. 拿到spring中存在的所有的 post-processor    <---- 在bean解析之后，实例化开始之前，这些post-processor都会被优先实例化
+		//                                             <---- 有些post-processor早在很早的时候就已经解析注册进spring beanfactory了，
+		//                                                       比如AutowiredAnnotationBeanPostProcessor是在component注解扫描以后，做得单独注册
 		for (BeanPostProcessor bp : getBeanPostProcessors()) {
+			//2. 这一步只关心 MergedBeanDefinitionPostProcessor 的post-processor
 			if (bp instanceof MergedBeanDefinitionPostProcessor) {
 				MergedBeanDefinitionPostProcessor bdp = (MergedBeanDefinitionPostProcessor) bp;
+				//3. 而且这一步还只关心 MergedBeanDefinitionPostProcessor 的 postProcessMergedBeanDefinition 方法
+				// 这是典型的埋点，实现类可以有很多，但是重写的方法可能各自不一样，不是这个功能的实现类就不做处理。
+				// 埋点   post-processor的精髓
 				bdp.postProcessMergedBeanDefinition(mbd, beanType, beanName);
 			}
 		}
