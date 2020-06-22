@@ -57,6 +57,15 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 	}
 
 
+	/**
+	 * 反射实例化
+	 * 1. 没有方法重载，即不继承接口的 jdk
+	 * 2. 继承接口，cglib
+	 * @param bd
+	 * @param beanName
+	 * @param owner
+	 * @return
+	 */
 	@Override
 	public Object instantiate(RootBeanDefinition bd, @Nullable String beanName, BeanFactory owner) {
 		// Don't override the class with CGLIB if no overrides.
@@ -84,10 +93,11 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				}
 			}
+			// 1. 通过反射clazz构造方法实例化 JDK
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {
-			// Must generate CGLIB subclass.
+			// 2. BeanDefinition有MethodOverrides ，方法重载也就是是有接口的时候，必须使用cglib反射调用了
 			return instantiateWithMethodInjection(bd, beanName, owner);
 		}
 	}

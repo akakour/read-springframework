@@ -16,6 +16,14 @@
 
 package org.springframework.beans.factory.support;
 
+import org.apache.commons.logging.Log;
+import org.springframework.beans.*;
+import org.springframework.beans.factory.*;
+import org.springframework.beans.factory.config.*;
+import org.springframework.core.*;
+import org.springframework.lang.Nullable;
+import org.springframework.util.*;
+
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -25,62 +33,10 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
-
-import org.apache.commons.logging.Log;
-
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.BeanWrapper;
-import org.springframework.beans.BeanWrapperImpl;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.MutablePropertyValues;
-import org.springframework.beans.PropertyAccessorUtils;
-import org.springframework.beans.PropertyValue;
-import org.springframework.beans.PropertyValues;
-import org.springframework.beans.TypeConverter;
-import org.springframework.beans.factory.Aware;
-import org.springframework.beans.factory.BeanClassLoaderAware;
-import org.springframework.beans.factory.BeanCreationException;
-import org.springframework.beans.factory.BeanCurrentlyInCreationException;
-import org.springframework.beans.factory.BeanDefinitionStoreException;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
-import org.springframework.beans.factory.BeanNameAware;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.UnsatisfiedDependencyException;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.beans.factory.config.ConstructorArgumentValues;
-import org.springframework.beans.factory.config.DependencyDescriptor;
-import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessor;
-import org.springframework.beans.factory.config.SmartInstantiationAwareBeanPostProcessor;
-import org.springframework.beans.factory.config.TypedStringValue;
-import org.springframework.core.DefaultParameterNameDiscoverer;
-import org.springframework.core.GenericTypeResolver;
-import org.springframework.core.MethodParameter;
-import org.springframework.core.NamedThreadLocal;
-import org.springframework.core.ParameterNameDiscoverer;
-import org.springframework.core.PriorityOrdered;
-import org.springframework.core.ResolvableType;
-import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ObjectUtils;
-import org.springframework.util.ReflectionUtils;
-import org.springframework.util.StringUtils;
 
 /**
  * Abstract bean factory superclass that implements default bean creation,
@@ -554,7 +510,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			 * 2. 创建bean 包装类
 			 *   （1）。根据bean的factory-method创建
 			 *   （2）。根据构造方法创建
-			 *         1）。有@Autowired 修饰的构造方法
+			 *         1）。有@Autowired 修饰的构造方法，先实例化依赖bean
 			 *         2）。普通构造方法
 			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
@@ -578,9 +534,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					 *   （2）。这里的支撑的具体代码意思是： 对每个beandefinition依次调用（先后顺序是在主流程最开始的地方 注册实例化这些post-processor的时候有排序 PkOrder>order>普通）
 					 *    postProcessMergedBeanDefinition 方法，该方法不同的 MergedBeanDefinitionPostProcessor 侧重点不同。
 					 *    其中AutowiredAnnotationBeanPostProcessor 和 CommonAnnotationBeanPostProcessor 的侧重点是：
-					 *              解析BeanDefinition 的class信息，扫描到对应的注解，封装成对象，收集到mbd中以便于第 4 步中进行bean填充。
+					 *              解析BeanDefinition 的class信息，扫描到对应的注解，封装成对象，收集到mbd中以便于第 5 步中进行bean填充。
 					 *  <------ 注意的是，到这里为止，bean对象以及被创建了，但是里面具体的元素并没有填充，特别是
-					 *    		@Autowired @Value @Resource等依赖注入对象还没有DI。所以第3步是收集，第4步DI。
+					 *    		@Autowired @Value @Resource等依赖注入对象还没有DI。所以第3步是收集，第5步DI（populateBean）
 					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
@@ -594,6 +550,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Eagerly cache singletons to be able to resolve circular references even when triggered by lifecycle interfaces like BeanFactoryAware.
 		//4. 是否提前暴露   为了解决循环依赖问题，这里就需要整个过程串起来理解，比较难
+		//  提前暴露条件： 单例，系统设置可以循环依赖，这个bean正在创立中
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
 		if (earlySingletonExposure) {
@@ -601,6 +558,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.trace("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
+			// 提前暴露需要放入三级缓存
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -608,7 +566,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		Object exposedObject = bean;
 		try {
 			/**
-			 * 5. 极其重要
+			 * 5. 极其重要 填充属性
+			 * 反射 深拷贝属性，主要是di的 从beanfactory取得
 			 *
 			 */
 			populateBean(beanName, mbd, instanceWrapper);
@@ -652,6 +611,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		// Register bean as disposable.
+		/**
+		 * 1. 如果是单例bean ，注册到disposableBeans中
+		 * 2. 如果是自定义scope，回调registerDestructionCallback （注册销毁方法）方法，注册一个销毁时回调方法
+		 */
 		try {
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
 		}
@@ -1145,8 +1108,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
-	 * Create a new instance for the specified bean, using an appropriate instantiation strategy:
-	 * factory method, constructor autowiring, or simple instantiation.
+	 * 使用适当的实例化策略为指定的bean创建一个新实例：
+	 * 1. 工厂方法，如果beandefinition有factorymethod，则交由factory-method对应的method去创建instance。（直接反射调用）
+	 * 2. 自动装配构造函数，如果是构造方法@Autowired注入的话，入参是引用类型的场合，会先创建入参实例（getbean）。被依赖beanname会注册到容器的DepandesSet中
+	 * 3. 无参构造函数，直接反射调用newInstance。无接口类默认JDK，有接口的必须cglib
+	 *
 	 * @param beanName the name of the bean
 	 * @param mbd the bean definition for the bean
 	 * @param args explicit arguments to use for constructor or factory method invocation
@@ -1194,27 +1160,38 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		if (resolved) {
 			if (autowireNecessary) {
+				/**
+				 4. 有参构造方法依赖注入的时候，需要参数依赖注入。反射调用构造方法实例化
+				 */
 				return autowireConstructor(beanName, mbd, null, null);
 			}
 			else {
+				/**
+				 * 5. 无参构造方法的时候，反射调用无参改造实例化
+				 */
 				return instantiateBean(beanName, mbd);
 			}
 		}
 
-		// Candidate constructors for autowiring?
+		/**
+		 * SmartInstantiationAwareBeanPostProcessor.determineCandidateConstructors 的post-processor调用
+		 * 核心作了两件事情
+		 * 1. 扫描封装beanclass中@LookUp注解修饰的方法
+		 * 2. 扫描有@AutoWire注解的构造方法，封装@AutoWire注解的参数（requrie），返回构造方法组
+		 */
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
 				mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args)) {
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
 
-		// Preferred constructors for default construction?
+		// 刷选一个合适的构造方法，比较复杂。。。
 		ctors = mbd.getPreferredConstructors();
 		if (ctors != null) {
 			return autowireConstructor(beanName, mbd, ctors, null);
 		}
 
-		// No special handling: simply use no-arg constructor.
+		// 无参构造方法的时候，反射调用无参改造实例化
 		return instantiateBean(beanName, mbd);
 	}
 
@@ -1271,7 +1248,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
-	 * Determine candidate constructors to use for the given bean, checking all registered
+	 * 埋点 SmartInstantiationAwareBeanPostProcessor接口的determineCandidateConstructors方法调用
+	 *  只有一个AutowiredAnnotationBeanPostProcessor会被调用
+	 *   核心是检查是否有@Lookup修饰的方法
+	 *
 	 * {@link SmartInstantiationAwareBeanPostProcessor SmartInstantiationAwareBeanPostProcessors}.
 	 * @param beanClass the raw class of the bean
 	 * @param beanName the name of the bean
@@ -1287,6 +1267,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
 					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
+					//只有一个AutowiredAnnotationBeanPostProcessor会被调用
+					//       检查封装所有@Lookup修饰的方法 到beandefination的MethodOverrides;寻找有@AutoWired的构造方法
+					//MethodOverrides：用于封装lookup-method和replaced-method标签的信息，类里面有一个set对象添加LookupOverride对象。
 					Constructor<?>[] ctors = ibp.determineCandidateConstructors(beanClass, beanName);
 					if (ctors != null) {
 						return ctors;
@@ -1313,6 +1296,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						getAccessControlContext());
 			}
 			else {
+				// 反射实例化instance。1. jdk ctor.newInstance；2，cglib
 				beanInstance = getInstantiationStrategy().instantiate(mbd, beanName, parent);
 			}
 			BeanWrapper bw = new BeanWrapperImpl(beanInstance);
@@ -1343,6 +1327,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
+	 *  有autowire修饰的constructor实例化
+	 *
 	 * "autowire constructor" (with constructor arguments by type) behavior.
 	 * Also applied if explicit constructor argument values are specified,
 	 * matching all remaining arguments with beans from the bean factory.
@@ -1363,8 +1349,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
-	 * Populate the bean instance in the given BeanWrapper with the property values
-	 * from the bean definition.
+	 * 使用bean定义中的属性填充给定BeanWrapper中的bean实例。
+	 *
+	 * 深拷贝
+	 *
 	 * @param beanName the name of the bean
 	 * @param mbd the bean definition for the bean
 	 * @param bw the BeanWrapper with bean instance

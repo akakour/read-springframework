@@ -380,6 +380,15 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 							throw ex;
 						}
 					});
+
+					/**
+					 * 回调FactoryBean接口的getObject()返回新的bean。。可能是feactorybean创立的bean也有可能是自己
+					 *
+					 *  FactoryBean接口的含义： 提供了一种在bean依据实例化完成之后还能“修改”的方法，有点类似于lookup了，
+					 *   1 实现factorybean的bean，根据自身的getbean（beanname）获取的是getObject返回的实例，可能是被修饰一番的自己也有可能不是，理论上任意
+					 *   2 要想获取真正的beanname对应的bean 需要getbean（'&'+beanname）
+					 *   3 在这部分代码前面的时候，生成beanname中也有判断是否是factorybean接口的，是否在默认的beanname规则前面加上’&‘
+					 */
 					bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
 				}
 
@@ -450,7 +459,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 		}
 
-		// Check if required type matches the type of the actual bean instance.
+		// 检查所需的类型是否与实际bean实例的类型匹配。   做类型匹配
 		if (requiredType != null && !requiredType.isInstance(bean)) {
 			try {
 				T convertedBean = getTypeConverter().convertIfNecessary(bean, requiredType);
@@ -1725,8 +1734,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	}
 
 	/**
-	 * Get the object for the given bean instance, either the bean
-	 * instance itself or its created object in case of a FactoryBean.
+	 * 获取给定bean实例的对象，如果是FactoryBean，则为bean实例其创建的对象。
+	 *
 	 * @param beanInstance the shared bean instance
 	 * @param name name that may include factory dereference prefix
 	 * @param beanName the canonical bean name

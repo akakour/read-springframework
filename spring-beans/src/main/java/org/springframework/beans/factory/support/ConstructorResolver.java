@@ -101,6 +101,12 @@ class ConstructorResolver {
 
 
 	/**
+	 * 由前一步扫描到的被@AutoWired @Value @Lookup修饰的构造方法创建bean instance
+	 * 1. 如果需要类型转换则有注册的类型转换器去转换
+	 * 2. 涉及到复杂的构造方法参数封装，比如会扫描入参是否有注解等
+	 * 3. 如果入参是引用类型，将会触发入参的getbean实例化操作
+	 *
+	 *
 	 * "autowire constructor" (with constructor arguments by type) behavior.
 	 * Also applied if explicit constructor argument values are specified,
 	 * matching all remaining arguments with beans from the bean factory.
@@ -140,6 +146,7 @@ class ConstructorResolver {
 				}
 			}
 			if (argsToResolve != null) {
+				// 封装参数对象
 				argsToUse = resolvePreparedArguments(beanName, mbd, bw, constructorToUse, argsToResolve, true);
 			}
 		}
@@ -185,6 +192,7 @@ class ConstructorResolver {
 			else {
 				ConstructorArgumentValues cargs = mbd.getConstructorArgumentValues();
 				resolvedValues = new ConstructorArgumentValues();
+				// 参数转转
 				minNrOfArgs = resolveConstructorArguments(beanName, mbd, bw, cargs, resolvedValues);
 			}
 
@@ -215,6 +223,9 @@ class ConstructorResolver {
 								paramNames = pnd.getParameterNames(candidate);
 							}
 						}
+						/**
+						 * 非常重要：构造方法入参的封装，如果入参是引用类型并且被@AutoWired修饰，就会触发入参的getbean操作
+						 */
 						argsHolder = createArgumentArray(beanName, mbd, resolvedValues, bw, paramTypes, paramNames,
 								getUserDeclaredConstructor(candidate), autowiring, candidates.length == 1);
 					}
@@ -277,15 +288,25 @@ class ConstructorResolver {
 			}
 
 			if (explicitArgs == null && argsHolderToUse != null) {
+				// 缓存该bean的构造方法
 				argsHolderToUse.storeCache(mbd, constructorToUse);
 			}
 		}
 
 		Assert.state(argsToUse != null, "Unresolved constructor arguments");
+		// 反射实例化
 		bw.setBeanInstance(instantiate(beanName, mbd, constructorToUse, argsToUse));
 		return bw;
 	}
 
+	/**
+	 * 反射实例化
+	 * @param beanName
+	 * @param mbd
+	 * @param constructorToUse
+	 * @param argsToUse
+	 * @return
+	 */
 	private Object instantiate(
 			String beanName, RootBeanDefinition mbd, Constructor constructorToUse, Object[] argsToUse) {
 
@@ -729,6 +750,7 @@ class ConstructorResolver {
 				else {
 					MethodParameter methodParam = MethodParameter.forExecutable(executable, paramIndex);
 					try {
+						// 参数类型转化，委托转化器去做
 						convertedValue = converter.convertIfNecessary(originalValue, paramType, methodParam);
 					}
 					catch (TypeMismatchException ex) {
@@ -759,6 +781,10 @@ class ConstructorResolver {
 							"] - did you specify the correct bean references as arguments?");
 				}
 				try {
+					/**
+					 * 上面的都可以不用关心，都是一些传递参数处理
+					 * 重点是这里：如果构造方法中有@AutoWired注解，并且有入参是引用类型，就会触发入参的实例化getbean
+					 */
 					Object autowiredArgument = resolveAutowiredArgument(
 							methodParam, beanName, autowiredBeanNames, converter, fallback);
 					args.rawArguments[paramIndex] = autowiredArgument;
@@ -773,6 +799,10 @@ class ConstructorResolver {
 			}
 		}
 
+		/**
+		 * 已经autowired提前实例化的bean是在beanfactory的definitionbeannames中，
+		 * 但是不在dependentBeanMap中，重新注册一遍computeIfAbsent到dependentBeanMap
+		 */
 		for (String autowiredBeanName : autowiredBeanNames) {
 			this.beanFactory.registerDependentBean(autowiredBeanName, beanName);
 			if (logger.isDebugEnabled()) {
@@ -786,7 +816,8 @@ class ConstructorResolver {
 	}
 
 	/**
-	 * Resolve the prepared arguments stored in the given bean definition.
+	 * 封装构造方法参数对象
+	 * 通过xml定义在bean标签里的 avrg，key-value诸如此类
 	 */
 	private Object[] resolvePreparedArguments(String beanName, RootBeanDefinition mbd, BeanWrapper bw,
 			Executable executable, Object[] argsToResolve, boolean fallback) {
@@ -856,6 +887,11 @@ class ConstructorResolver {
 			return injectionPoint;
 		}
 		try {
+			/**
+			 * beanName对应的bean中DI的autowiredBeanNames的预先初始化，autowiredBeanNames会执行getbean，涉及到循环依赖
+			 * 注意一点：这个时候beanName对应的bean还被记录在singletonbeanInCreate容器中，没有放入三级缓存，也没有提前暴露。
+			 *      所以，触发autowiredBeanNames的getbean，如果autowiredBeanNames有依赖beanName的，那就会被singletonbeanInCreate阻断，从而容器启动失败
+			 */
 			return this.beanFactory.resolveDependency(
 					new DependencyDescriptor(param, true), beanName, autowiredBeanNames, typeConverter);
 		}

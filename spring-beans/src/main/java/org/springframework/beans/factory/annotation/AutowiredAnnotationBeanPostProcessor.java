@@ -253,7 +253,9 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	public Constructor<?>[] determineCandidateConstructors(Class<?> beanClass, final String beanName)
 			throws BeanCreationException {
 
-		// Let's check for lookup methods here..
+		/**
+		 1，检查Lookup注解
+		 */
 		if (!this.lookupMethodsChecked.contains(beanName)) {
 			try {
 				ReflectionUtils.doWithMethods(beanClass, method -> {
@@ -278,10 +280,10 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 			this.lookupMethodsChecked.add(beanName);
 		}
 
-		// Quick check on the concurrent map first, with minimal locking.
+		// 2.1  先从缓存拿构造方法
 		Constructor<?>[] candidateConstructors = this.candidateConstructorsCache.get(beanClass);
 		if (candidateConstructors == null) {
-			// Fully synchronized resolution now...
+			// 2.2 全class扫描构造方法
 			synchronized (this.candidateConstructorsCache) {
 				candidateConstructors = this.candidateConstructorsCache.get(beanClass);
 				if (candidateConstructors == null) {
@@ -306,6 +308,10 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 						else if (primaryConstructor != null) {
 							continue;
 						}
+						/**
+						 * 2. 递归判断属性，构造方法，方法上的注解是否是autowiredAnnotationTypes容器中（@Autowired	@Value）的，有就收集AnnotationAttributes（linkedMap）。
+						 * 会递归扫描注解的注解，父类等
+						 */
 						AnnotationAttributes ann = findAutowiredAnnotation(candidate);
 						if (ann == null) {
 							Class<?> userClass = ClassUtils.getUserClass(beanClass);
@@ -313,6 +319,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								try {
 									Constructor<?> superCtor =
 											userClass.getDeclaredConstructor(candidate.getParameterTypes());
+									//递归父类
 									ann = findAutowiredAnnotation(superCtor);
 								}
 								catch (NoSuchMethodException ex) {
@@ -327,6 +334,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 										". Found constructor with 'required' Autowired annotation already: " +
 										requiredConstructor);
 							}
+							//取得@Autowired注解的required的值
 							boolean required = determineRequiredStatus(ann);
 							if (required) {
 								if (!candidates.isEmpty()) {
@@ -371,6 +379,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 					else {
 						candidateConstructors = new Constructor<?>[0];
 					}
+					//加入缓存，便于下一次直接缓存拿去
 					this.candidateConstructorsCache.put(beanClass, candidateConstructors);
 				}
 			}
@@ -529,7 +538,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	}
 
 	/**
-	 *  判断filed上的注解是否是autowiredAnnotationTypes容器中的，有就收集。
+	 *  递归判断属性，构造方法，方法上的注解是否是autowiredAnnotationTypes容器中的，有就收集。
 	 *  autowiredAnnotationTypes 在本类构造方法中定义了。就是Autowired.class 和Value.class
 	 * @param ao
 	 * @return
@@ -537,6 +546,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	@Nullable
 	private AnnotationAttributes findAutowiredAnnotation(AccessibleObject ao) {
 		if (ao.getAnnotations().length > 0) {  // autowiring annotations have to be local
+			// 递归判断是否AccessibleObject（类，方法，属性的公共父类）上	@Autowired	@Value，有就分装成AnnotationAttributes
 			for (Class<? extends Annotation> type : this.autowiredAnnotationTypes) {
 				AnnotationAttributes attributes = AnnotatedElementUtils.getMergedAnnotationAttributes(ao, type);
 				if (attributes != null) {
@@ -792,6 +802,11 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 			this.requiredType = requiredType;
 		}
 
+		/**
+		 * AutoWired 依赖注入的构造方法初始化触发DI属性的初始化
+		 * @param beanFactory
+		 * @return
+		 */
 		@Override
 		public Object resolveShortcut(BeanFactory beanFactory) {
 			return beanFactory.getBean(this.shortcut, this.requiredType);

@@ -1172,18 +1172,32 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
 					descriptor, requestingBeanName);
 			if (result == null) {
+				/**
+				 * requestingBeanName对应的bean中，Di的autowiredBeanNames的预先初始化
+				 */
 				result = doResolveDependency(descriptor, requestingBeanName, autowiredBeanNames, typeConverter);
 			}
 			return result;
 		}
 	}
 
+	/**
+	 *  beanName中依赖注入的autowiredBeanNames的实例化操作
+	 *
+	 * @param descriptor
+	 * @param beanName
+	 * @param autowiredBeanNames
+	 * @param typeConverter
+	 * @return
+	 * @throws BeansException
+	 */
 	@Nullable
 	public Object doResolveDependency(DependencyDescriptor descriptor, @Nullable String beanName,
 			@Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
 
 		InjectionPoint previousInjectionPoint = ConstructorResolver.setCurrentInjectionPoint(descriptor);
 		try {
+			// 触发autowired 构造方法 参数getbean
 			Object shortcut = descriptor.resolveShortcut(this);
 			if (shortcut != null) {
 				return shortcut;
