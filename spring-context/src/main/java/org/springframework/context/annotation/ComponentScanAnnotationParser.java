@@ -73,10 +73,18 @@ class ComponentScanAnnotationParser {
 	}
 
 
+	/**
+	 * 解析ComponentScan注解
+	 * @param componentScan
+	 * @param declaringClass
+	 * @return
+	 */
 	public Set<BeanDefinitionHolder> parse(AnnotationAttributes componentScan, final String declaringClass) {
+		//1. 初始化一个ClassPathBeanDefinitionScanner 扫包器，ps.自定义注解的时候，也可以这样做
 		ClassPathBeanDefinitionScanner scanner = new ClassPathBeanDefinitionScanner(this.registry,
 				componentScan.getBoolean("useDefaultFilters"), this.environment, this.resourceLoader);
 
+		//2. 以下都是在配置这个scan的一些属性，这里的属性和xml配置形式的<context:componment-scan>里面的属性一模一样
 		Class<? extends BeanNameGenerator> generatorClass = componentScan.getClass("nameGenerator");
 		boolean useInheritedGenerator = (BeanNameGenerator.class == generatorClass);
 		scanner.setBeanNameGenerator(useInheritedGenerator ? this.beanNameGenerator :
@@ -129,6 +137,9 @@ class ComponentScanAnnotationParser {
 				return declaringClass.equals(className);
 			}
 		});
+		/**
+		 * 3. 关键点，开始扫包
+		 */
 		return scanner.doScan(StringUtils.toStringArray(basePackages));
 	}
 

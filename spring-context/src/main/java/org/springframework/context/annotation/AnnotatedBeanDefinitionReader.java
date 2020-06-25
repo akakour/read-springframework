@@ -84,6 +84,13 @@ public class AnnotatedBeanDefinitionReader {
 		Assert.notNull(environment, "Environment must not be null");
 		this.registry = registry;
 		this.conditionEvaluator = new ConditionEvaluator(registry, environment, null);
+		/**
+		 * 极其重要 ： 事前往bdmap里注册了一些post-processor，
+		 * 	 * ConfigurationClassPostProcessor  ------->  @configuration
+		 * 	 * AutowiredAnnotationBeanPostProcessor  --------> @Autowired
+		 * 	 * CommonAnnotationBeanPostProcessor   ------> @PreDestory....
+		 * 	 * EventListenerMethodProcessor  ------->  spring事件机制相关
+		 */
 		AnnotationConfigUtils.registerAnnotationConfigProcessors(this.registry);
 	}
 

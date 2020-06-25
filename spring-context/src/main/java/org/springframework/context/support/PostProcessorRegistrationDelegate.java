@@ -55,6 +55,7 @@ final class PostProcessorRegistrationDelegate {
 	/**
 	 * 两类接口 BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor的提前实例化。
 	 * 1. 排序 ：PriorityOrdered接口 > Ordered接口 > 无排序接口
+	 * 2. 完成ComponmentScan，import Impoertsource，Componment，Configuration等注解的实际动作，扫包，封装BD，注册
 	 * @param beanFactory
 	 * @param beanFactoryPostProcessors
 	 */
@@ -73,6 +74,9 @@ final class PostProcessorRegistrationDelegate {
 				if (postProcessor instanceof BeanDefinitionRegistryPostProcessor) {
 					BeanDefinitionRegistryPostProcessor registryProcessor =
 							(BeanDefinitionRegistryPostProcessor) postProcessor;
+					/**
+					 * 极其重要 ： 这里实际上会完成ConfigurationClassPostProcessor的动作
+					 */
 					registryProcessor.postProcessBeanDefinitionRegistry(registry);
 					registryProcessors.add(registryProcessor);
 				}

@@ -62,7 +62,9 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * through {@link #register} calls and then manually {@linkplain #refresh refreshed}.
 	 */
 	public AnnotationConfigApplicationContext() {
+		// 注册reader的同时，往dbmap里面注册了一些基本注解支撑的post-processor 如@Configuration @Autowired @bean @PostContracut @PreDestroy
 		this.reader = new AnnotatedBeanDefinitionReader(this);
+		// 在incloudFilter注册了默认的三个过滤器 @Component @Managebean(JSR-250) @Inject (JSR-330)
 		this.scanner = new ClassPathBeanDefinitionScanner(this);
 	}
 
@@ -84,7 +86,13 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 */
 	public AnnotationConfigApplicationContext(Class<?>... annotatedClasses) {
 		this();
+		// register 方法只是完成annotatedClasses的beandefinition转换，
+		// 所有的信息都封装在beandefinition的metaData对象中，然后在refresh方法中会被post-processor处理，其中测
 		register(annotatedClasses);
+		// 这里要注意观察，AnnotationConfigApplicationContext是继承自GenericApplicationContext
+		// 所以在refresh的obtainFreshBeanFactory（）中refreshBeanFacyory 不走xml那一套，xml走的是AbstractRefreshableApplicationContext.refreshBeanFacyory
+		// 注解走的是GenericApplicationContext.refreshBeanFacyory()
+		// 多态，面向接口编程
 		refresh();
 	}
 

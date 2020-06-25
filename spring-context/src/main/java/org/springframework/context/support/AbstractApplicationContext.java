@@ -526,9 +526,11 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 给子类预留的钩子方法。目前spring framework中没有实现
 				postProcessBeanFactory(beanFactory);
 
-				// 提前注册并实例化了BeanDefinitionRegistryPostProcessor、
-				//                  BeanFactoryPostProcessor
-				// 				这些postprocessor基本上都是会在实例化过程用到
+				/**
+				 提前注册并实例化了BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor,这些postprocessor基本上都是会在实例化过程用到
+				 *
+				 同时这里也是无配置文件（全注解）spring容器实例化的入口
+				 */
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.

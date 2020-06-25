@@ -852,7 +852,10 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					}
 				}
 				else {
-					//2.3.2 极其重要：实例化bean
+					/**
+					 2.3.2 极其重要：实例化bean
+					 *
+					 */
 					getBean(beanName);
 				}
 			}
