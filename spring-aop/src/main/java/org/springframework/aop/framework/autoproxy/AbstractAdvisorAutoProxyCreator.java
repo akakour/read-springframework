@@ -73,6 +73,9 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 	protected Object[] getAdvicesAndAdvisorsForBean(
 			Class<?> beanClass, String beanName, @Nullable TargetSource targetSource) {
 
+		/**
+		 * 找到合适的advisor链
+		 */
 		List<Advisor> advisors = findEligibleAdvisors(beanClass, beanName);
 		if (advisors.isEmpty()) {
 			return DO_NOT_PROXY;
@@ -81,7 +84,8 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 	}
 
 	/**
-	 * Find all eligible Advisors for auto-proxying this class.
+	 * 寻找所有合格的符合该bean的切面
+	 *
 	 * @param beanClass the clazz to find advisors for
 	 * @param beanName the name of the currently proxied bean
 	 * @return the empty List, not {@code null},
@@ -91,10 +95,22 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 	 * @see #extendAdvisors
 	 */
 	protected List<Advisor> findEligibleAdvisors(Class<?> beanClass, String beanName) {
+		/**
+		 * 极其重要
+		 *  =收集= 所有候选的切面advisor
+		 * 1. 先找到有@Aspectj注解的bean
+		 * 2. 将找到的bean的元信息封装成AspectjMetad对象
+		 */
 		List<Advisor> candidateAdvisors = findCandidateAdvisors();
+		/**
+		 * 极其重要
+		 *  =筛选= 从候选切面里面找到合格的切面
+		 *  就是一个匹配过程，匹配被代理的bean是否满足上面收集的adviosr的piontcut
+		 */
 		List<Advisor> eligibleAdvisors = findAdvisorsThatCanApply(candidateAdvisors, beanClass, beanName);
 		extendAdvisors(eligibleAdvisors);
 		if (!eligibleAdvisors.isEmpty()) {
+			// 利用@Order @Priority等注解进行advisor切面排序
 			eligibleAdvisors = sortAdvisors(eligibleAdvisors);
 		}
 		return eligibleAdvisors;

@@ -289,8 +289,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	}
 
 	/**
-	 * Create a proxy with the configured interceptors if the bean is
-	 * identified as one to proxy by the subclass.
+	 * 如果bean被子类标识为要代理的代理，则使用配置的拦截器创建代理。
+	 *
+	 *  AOP 创建代理对象
+	 *
 	 * @see #getAdvicesAndAdvisorsForBean
 	 */
 	@Override
@@ -345,7 +347,11 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			return bean;
 		}
 
-		// Create proxy if we have advice.
+		/**
+		 * 1. 找到这个bean能匹配到的 所有拦截器
+		 *   A. 扫描所有的@Aspectj注解的类，分析这个类中的方法，重点是@pointCut注解和@Around @Before等advisor注解，收集起来
+		 *   B. advisor类型注解的注解参数解析，找到里面的@PointCut
+		 * */
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
 		if (specificInterceptors != DO_NOT_PROXY) {
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);

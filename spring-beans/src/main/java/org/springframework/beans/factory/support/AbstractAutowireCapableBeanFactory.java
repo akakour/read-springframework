@@ -571,6 +571,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			 *
 			 */
 			populateBean(beanName, mbd, instanceWrapper);
+
+			/**
+			 * 6. 极其重要 Spring-Aop 对bean进行代理增强
+			 */
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {

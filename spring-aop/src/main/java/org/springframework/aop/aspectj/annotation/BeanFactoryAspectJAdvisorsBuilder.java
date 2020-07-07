@@ -74,8 +74,9 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 
 
 	/**
-	 * Look for AspectJ-annotated aspect beans in the current bean factory,
-	 * and return to a list of Spring AOP Advisors representing them.
+	 * 在当前的bean工厂中查找带有AspectJ注释的aspect bean,
+	 * 然后返回代表它们的Spring AOP Advisor列表.
+	 *
 	 * <p>Creates a Spring Advisor for each AspectJ advice method.
 	 * @return the list of {@link org.springframework.aop.Advisor} beans
 	 * @see #isEligibleBean
@@ -89,8 +90,10 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 				if (aspectNames == null) {
 					List<Advisor> advisors = new ArrayList<>();
 					aspectNames = new ArrayList<>();
+					//1. 从beanfactory中找到继承了Object类的bean，实际上是全部beanname
 					String[] beanNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 							this.beanFactory, Object.class, true, false);
+					//2. 遍历全部bean
 					for (String beanName : beanNames) {
 						if (!isEligibleBean(beanName)) {
 							continue;
@@ -101,12 +104,21 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 						if (beanType == null) {
 							continue;
 						}
+						// 3. 是否是有@Aspectj注解的类
 						if (this.advisorFactory.isAspect(beanType)) {
+							//4. 有@Aspectj就添加
 							aspectNames.add(beanName);
+							//5. 常规操作，如果是aspectj的类就反射拿到这个类的所有元信息，以便后续操作
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {
+								//6. 创建一个持有aspectj类的过程，委托这个工厂处理
 								MetadataAwareAspectInstanceFactory factory =
 										new BeanFactoryAspectInstanceFactory(this.beanFactory, beanName);
+
+								/**
+								 * 7. 极其重要
+								 * 创建advisor切面
+								 */
 								List<Advisor> classAdvisors = this.advisorFactory.getAdvisors(factory);
 								if (this.beanFactory.isSingleton(beanName)) {
 									this.advisorsCache.put(beanName, classAdvisors);

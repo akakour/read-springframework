@@ -131,6 +131,10 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 	@Nullable
 	protected static AspectJAnnotation<?> findAspectJAnnotationOnMethod(Method method) {
 		for (Class<?> clazz : ASPECTJ_ANNOTATION_CLASSES) {
+			/**
+			 * 匹配方法上面是否有Pointcut Around, Before, After, AfterReturning, AfterThrowing注解
+			 * 有就封装注解的参数信息城AspectJAnnotation，重点是pointcutExpression 切点表达式信息，这是是否要aop的点
+			 */
 			AspectJAnnotation<?> foundAnnotation = findAnnotation(method, (Class<Annotation>) clazz);
 			if (foundAnnotation != null) {
 				return foundAnnotation;
@@ -189,10 +193,17 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 
 		private final String argumentNames;
 
+		/**
+		 * AspectJAnnotation
+		 * 根据注解，封装AspectJAnnotation
+		 * 重点是，顺便解析了advisor的pointcut关注点表达式pointcutExpression
+		 * @param annotation
+		 */
 		public AspectJAnnotation(A annotation) {
 			this.annotation = annotation;
 			this.annotationType = determineAnnotationType(annotation);
 			try {
+				// 从advisor注解参数解析得到pointcut表达式
 				this.pointcutExpression = resolveExpression(annotation);
 				Object argNames = AnnotationUtils.getValue(annotation, "argNames");
 				this.argumentNames = (argNames instanceof String ? (String) argNames : "");
