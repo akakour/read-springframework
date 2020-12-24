@@ -85,7 +85,7 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 		XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
 		// 设置环境属性：包括jvm属性。（无用）
 		beanDefinitionReader.setEnvironment(this.getEnvironment());
-		// XML解析器持有上下文对象的引用
+		// XML解析器持有上下文对象(包括xml的输入流对象)的引用,
 		beanDefinitionReader.setResourceLoader(this);
 		beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
 

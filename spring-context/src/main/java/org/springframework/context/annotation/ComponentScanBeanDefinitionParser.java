@@ -161,7 +161,7 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 		// Register annotation config processors, if necessary.
 		boolean annotationConfig = true;
 		if (element.hasAttribute(ANNOTATION_CONFIG_ATTRIBUTE)) {
-			//<context:xxx>标签的时候，为true ------> 解析compent-scan的时候就会注册几个关键的beanpostprocessor
+			//<context:xxx annotation-config='true'>标签的时候，为true ------> 解析compent-scan的时候就会注册几个关键的beanpostprocessor
 			annotationConfig = Boolean.valueOf(element.getAttribute(ANNOTATION_CONFIG_ATTRIBUTE));
 		}
 		// 只有在context扫包的时候才会进入。。

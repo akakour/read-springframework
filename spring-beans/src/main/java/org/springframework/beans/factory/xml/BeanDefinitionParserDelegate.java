@@ -1386,7 +1386,7 @@ public class BeanDefinitionParserDelegate {
 
 		BeanDefinitionHolder finalDefinition = definitionHolder;
 
-		//1. 依据元素的属性来装饰
+		//1. 依据元素的属性来装饰 <bean p:xx=""  c:xx=""></bean>
 		NamedNodeMap attributes = ele.getAttributes();
 		for (int i = 0; i < attributes.getLength(); i++) {
 			Node node = attributes.item(i);
@@ -1394,7 +1394,7 @@ public class BeanDefinitionParserDelegate {
 			finalDefinition = decorateIfRequired(node, finalDefinition, containingBd);
 		}
 
-		//2. 依据元素的子节点来装饰
+		//2. 依据元素的子节点来装饰 <bean><constructor-arg/><property /><bean>
 		NodeList children = ele.getChildNodes();
 		for (int i = 0; i < children.getLength(); i++) {
 			Node node = children.item(i);

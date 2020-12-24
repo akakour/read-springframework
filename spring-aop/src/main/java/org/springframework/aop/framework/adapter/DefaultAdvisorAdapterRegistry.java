@@ -53,6 +53,14 @@ public class DefaultAdvisorAdapterRegistry implements AdvisorAdapterRegistry, Se
 	}
 
 
+	/**
+	 * 将advisor统一封装
+	 * 1. 本身就是advisor的直接返回
+	 * 2. 是MethodInterceptor接口的，封装成DefaultPointcutAdvisor返回，这一步是针对前一步自定义引入的共同Interceptor的advisor
+	 * @param adviceObject
+	 * @return
+	 * @throws UnknownAdviceTypeException
+	 */
 	@Override
 	public Advisor wrap(Object adviceObject) throws UnknownAdviceTypeException {
 		if (adviceObject instanceof Advisor) {

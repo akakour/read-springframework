@@ -124,6 +124,8 @@ public @interface EnableAspectJAutoProxy {
 
 	/**
 	 * 指明是否要创建基于子类（CGLIB）的代理，而不是基于标准Java接口的代理.
+	 * false: 实现了接口，用jdk代理；没有实现接口，cglib代理
+	 * true：无论是否实现接口，都是cglib代理
 	 * The default is {@code false}.
 	 */
 	boolean proxyTargetClass() default false;

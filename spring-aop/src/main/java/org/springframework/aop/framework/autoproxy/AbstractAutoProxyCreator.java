@@ -329,6 +329,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	}
 
 	/**
+	 *  如果有需要，进行aop增强
 	 * Wrap the given bean if necessary, i.e. if it is eligible for being proxied.
 	 * @param bean the raw bean instance
 	 * @param beanName the name of the bean
@@ -350,11 +351,15 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		/**
 		 * 1. 找到这个bean能匹配到的 所有拦截器
 		 *   A. 扫描所有的@Aspectj注解的类，分析这个类中的方法，重点是@pointCut注解和@Around @Before等advisor注解，收集起来
-		 *   B. advisor类型注解的注解参数解析，找到里面的@PointCut
+		 *   B. advisor类型注解的注解参数解析，找到里面的pointcut表达式，全部封装成advisor对象
+		 *   C. 给指定的bean匹配advisor对象
 		 * */
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
 		if (specificInterceptors != DO_NOT_PROXY) {
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
+			/**
+			 * 2. 如果有匹配到的advisor对象，则进行proxy。目标bean封装成SingletonTargetSource对象
+			 */
 			Object proxy = createProxy(
 					bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
 			this.proxyTypes.put(cacheKey, proxy.getClass());
@@ -466,6 +471,11 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			}
 		}
 
+		/**
+		 * 1. 将advisor在进行统一封装
+		 * a. 前面的advisor
+		 * b。自定义的全局MethodInterceptor
+		 */
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 		proxyFactory.addAdvisors(advisors);
 		proxyFactory.setTargetSource(targetSource);
@@ -476,6 +486,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			proxyFactory.setPreFiltered(true);
 		}
 
+		/**
+		 * 2.创建代理对象，两种方式：jdk和cglib
+		 *  目标对象类和符合这个类的advisor都已经封装到proxyfactory中
+		 */
 		return proxyFactory.getProxy(getProxyClassLoader());
 	}
 
@@ -508,8 +522,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	}
 
 	/**
-	 * Determine the advisors for the given bean, including the specific interceptors
-	 * as well as the common interceptor, all adapted to the Advisor interface.
+	 * 确定给定bean的advisor，包括适用于Advisor接口的特定拦截器以及公共拦截器。
 	 * @param beanName the name of the bean
 	 * @param specificInterceptors the set of interceptors that is
 	 * specific to this bean (may be empty, but not null)
@@ -517,6 +530,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	 */
 	protected Advisor[] buildAdvisors(@Nullable String beanName, @Nullable Object[] specificInterceptors) {
 		// Handle prototypes correctly...
+		/**
+		 * 自定义的aop通用拦截器 this.interceptorNames有值的时候，可以通过set方法赋值
+		 * 这是全局的拦截器
+		 */
 		Advisor[] commonInterceptors = resolveInterceptorNames();
 
 		List<Object> allInterceptors = new ArrayList<>();
@@ -540,6 +557,11 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 		Advisor[] advisors = new Advisor[allInterceptors.size()];
 		for (int i = 0; i < allInterceptors.size(); i++) {
+			/**
+			 * 将所有的advisor进行装饰
+			 * 1. 本身就是@AspectJ引入的advisor，原样返回
+			 * 2. 如果是自定义的共同（全局）拦截器（在前一步引入并MethodIntercept）封装成DefaultPointcutAdvisor 返回
+			 */
 			advisors[i] = this.advisorAdapterRegistry.wrap(allInterceptors.get(i));
 		}
 		return advisors;
