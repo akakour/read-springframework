@@ -74,6 +74,7 @@ public class AspectMetadata implements Serializable {
 
 
 	/**
+	 *  利用AspectJ的相关概念，将@Aspect注解的类封装成Aspect元信息
 	 * Create a new AspectMetadata instance for the given aspect class.
 	 * @param aspectClass the aspect class
 	 * @param aspectName the name of the aspect

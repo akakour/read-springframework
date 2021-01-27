@@ -196,7 +196,8 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 		/**
 		 * AspectJAnnotation
 		 * 根据注解，封装AspectJAnnotation
-		 * 重点是，顺便解析了advisor的pointcut关注点表达式pointcutExpression
+		 * 重点是，要解析出advisor的pointcut表达式pointcutExpression
+		 *         和annotationType是pointcut还是atbefore等。。
 		 * @param annotation
 		 */
 		public AspectJAnnotation(A annotation) {

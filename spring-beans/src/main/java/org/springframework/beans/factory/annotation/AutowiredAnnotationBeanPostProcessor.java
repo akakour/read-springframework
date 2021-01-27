@@ -387,10 +387,19 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 		return (candidateConstructors.length > 0 ? candidateConstructors : null);
 	}
 
+	/**
+	 * 对之前收集的@Autowired@Value@Lookup等注解的DI处理
+	 * @param pvs
+	 * @param bean
+	 * @param beanName
+	 * @return
+	 */
 	@Override
 	public PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName) {
+		// 一般不出意外是从缓存拿到InjectionMetadata信息，因为之前已经收集过了。
 		InjectionMetadata metadata = findAutowiringMetadata(beanName, bean.getClass(), pvs);
 		try {
+			// 针对收集到的InjectionMetadata进行Di处理，如果是class类型会触发getbean处理
 			metadata.inject(bean, beanName, pvs);
 		}
 		catch (BeanCreationException ex) {
@@ -634,20 +643,33 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 			this.required = required;
 		}
 
+		/**
+		 * 一般的属性@Autowired的场合的inject处理
+		 * @param target 目标对象class
+		 * @param beanName 目标对象beanname
+		 * @param pvs 目标对象的PropertyValue对象，纯注解的模式中，一开始是空对象
+		 * @throws Throwable
+		 */
 		@Override
 		protected void inject(Object bean, @Nullable String beanName, @Nullable PropertyValues pvs) throws Throwable {
 			Field field = (Field) this.member;
 			Object value;
 			if (this.cached) {
+				// 首次不会走缓存
 				value = resolvedCachedArgument(beanName, this.cachedFieldValue);
 			}
 			else {
+				// 1. 预想被Di的field封装成DependencyDescriptor对象
 				DependencyDescriptor desc = new DependencyDescriptor(field, this.required);
+				// 2. 设置DependencyDescriptor的Di的目标类
 				desc.setContainingClass(bean.getClass());
 				Set<String> autowiredBeanNames = new LinkedHashSet<>(1);
 				Assert.state(beanFactory != null, "No BeanFactory available");
+				// 3. 获取类型转换器 比如String类型 map类型等，一般是SimpleTypeConverter
 				TypeConverter typeConverter = beanFactory.getTypeConverter();
 				try {
+					// 4. 重点，如果是被di对象是class类型，这里就会触发getBean操作，进而可能会循环依赖。如果是其他基本类型，就不会触发getbean
+					// 返回值value是被di对象实例，autowiredBeanNames容器会添加被di对象实例化后在spring中的beanname。
 					value = beanFactory.resolveDependency(desc, beanName, autowiredBeanNames, typeConverter);
 				}
 				catch (BeansException ex) {
@@ -699,11 +721,19 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 			this.required = required;
 		}
 
+		/**
+		 * 方法的入参是@Autowired的场合下，inject处理
+		 * @param bean
+		 * @param beanName
+		 * @param pvs
+		 * @throws Throwable
+		 */
 		@Override
 		protected void inject(Object bean, @Nullable String beanName, @Nullable PropertyValues pvs) throws Throwable {
 			if (checkPropertySkipping(pvs)) {
 				return;
 			}
+			// 前面的收集阶段，如果是方法有@Autowired，将会把该方法封装成InjectionElement对象。
 			Method method = (Method) this.member;
 			Object[] arguments;
 			if (this.cached) {
@@ -718,11 +748,14 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 				Assert.state(beanFactory != null, "No BeanFactory available");
 				TypeConverter typeConverter = beanFactory.getTypeConverter();
 				for (int i = 0; i < arguments.length; i++) {
+					// 依次得到方法中的入参
 					MethodParameter methodParam = new MethodParameter(method, i);
+					// 将单个入参封装成DependencyDescriptor对象
 					DependencyDescriptor currDesc = new DependencyDescriptor(methodParam, this.required);
 					currDesc.setContainingClass(bean.getClass());
 					descriptors[i] = currDesc;
 					try {
+						// 将单个入进行getBean操作（class类型的场合），这一步和属性的inject处理类似
 						Object arg = beanFactory.resolveDependency(currDesc, beanName, autowiredBeans, typeConverter);
 						if (arg == null && !this.required) {
 							arguments = null;
@@ -762,6 +795,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 			}
 			if (arguments != null) {
 				try {
+					// 最终，反射执行方法，绑定参数
 					ReflectionUtils.makeAccessible(method);
 					method.invoke(bean, arguments);
 				}

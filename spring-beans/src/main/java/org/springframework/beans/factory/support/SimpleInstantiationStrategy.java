@@ -124,9 +124,11 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					return null;
 				});
 			}
+			// 基本上都是这个方法，BeanUtils工具类jdk反射实例化
 			return BeanUtils.instantiateClass(ctor, args);
 		}
 		else {
+			// Cglib代理实例化
 			return instantiateWithMethodInjection(bd, beanName, owner, ctor, args);
 		}
 	}

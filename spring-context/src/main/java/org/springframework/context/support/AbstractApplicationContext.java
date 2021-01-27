@@ -863,7 +863,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// Register a default embedded value resolver if no bean post-processor
 		// (such as a PropertyPlaceholderConfigurer bean) registered any before:
 		// at this point, primarily for resolution in annotation attribute values.
-		//2. 注册默认的解析器，主要是用于对没有特定解析器的注解的支持
+		//2. 注册对 ${xxx.xx} 这类SpEl注入支持的解析器
+		//   1. 先从Environment 中获取
+		//   2. 再从properties 中获取
 		if (!beanFactory.hasEmbeddedValueResolver()) {
 			beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlaceholders(strVal));
 		}
@@ -879,7 +881,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.setTempClassLoader(null);
 
 		// Allow for caching all bean definition metadata, not expecting further changes.
-		// 4. 在实例化前，保存下来所有解析到的beandefinition的元信息。freeze
+		// 4. 在实例化前，保存下来所有解析到的beandefinition的元信息。类似于事前深拷贝一次，以便万无一失。freeze
 		beanFactory.freezeConfiguration();
 
 		// 5. 及其重要，实例化单例非懒加载bean

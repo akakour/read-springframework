@@ -87,6 +87,8 @@ public class InjectionMetadata {
 				if (logger.isTraceEnabled()) {
 					logger.trace("Processing injected element of bean '" + beanName + "': " + element);
 				}
+				// 循环所有的InjectionElement对象，执行inject 依赖注入
+				// 注意的是，这里调用的是element的子类的inject方法。
 				element.inject(target, beanName, pvs);
 			}
 		}
@@ -175,11 +177,14 @@ public class InjectionMetadata {
 		protected void inject(Object target, @Nullable String requestingBeanName, @Nullable PropertyValues pvs)
 				throws Throwable {
 
+			// InjectElement封装的是属性的场合
 			if (this.isField) {
 				Field field = (Field) this.member;
 				ReflectionUtils.makeAccessible(field);
+				// getResourceToInject 会被子类重写，父类返回null
 				field.set(target, getResourceToInject(target, requestingBeanName));
 			}
+			// InjectElement封装的是方法的场合
 			else {
 				if (checkPropertySkipping(pvs)) {
 					return;

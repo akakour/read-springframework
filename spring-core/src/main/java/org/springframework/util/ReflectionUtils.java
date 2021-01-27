@@ -581,11 +581,13 @@ public abstract class ReflectionUtils {
 	public static void doWithMethods(Class<?> clazz, MethodCallback mc, @Nullable MethodFilter mf) {
 		// Keep backing up the inheritance hierarchy.
 		Method[] methods = getDeclaredMethods(clazz);
+		// 1. 取得所有方法，依次执行
 		for (Method method : methods) {
 			if (mf != null && !mf.matches(method)) {
 				continue;
 			}
 			try {
+				// 对每个方法都执行 回调外层传入的匿名方法的逻辑
 				mc.doWith(method);
 			}
 			catch (IllegalAccessException ex) {
@@ -593,9 +595,11 @@ public abstract class ReflectionUtils {
 			}
 		}
 		if (clazz.getSuperclass() != null) {
+			// 2. 如果目标类还有父类，递归
 			doWithMethods(clazz.getSuperclass(), mc, mf);
 		}
 		else if (clazz.isInterface()) {
+			// 3. 如果目标类是接口，那就拿到所有接口的实现类，递归
 			for (Class<?> superIfc : clazz.getInterfaces()) {
 				doWithMethods(superIfc, mc, mf);
 			}

@@ -289,16 +289,16 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	}
 
 	/**
-	 * 如果bean被子类标识为要代理的代理，则使用配置的拦截器创建代理。
-	 *
-	 *  AOP 创建代理对象
+	 * 给非提前代理的对象创建AOP代理
 	 *
 	 * @see #getAdvicesAndAdvisorsForBean
 	 */
 	@Override
 	public Object postProcessAfterInitialization(@Nullable Object bean, String beanName) {
 		if (bean != null) {
+			// 创建bean的cachekey，一般的bean是beanname，factoryBean接口的bean是“&”+beanname
 			Object cacheKey = getCacheKey(bean.getClass(), beanName);
+			// 判断是否是提前代理，如果是提前代理则不再进行代理增强了
 			if (!this.earlyProxyReferences.contains(cacheKey)) {
 				return wrapIfNecessary(bean, beanName, cacheKey);
 			}
@@ -343,21 +343,27 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		if (Boolean.FALSE.equals(this.advisedBeans.get(cacheKey))) {
 			return bean;
 		}
+		/**
+		 * 重要： shouldskip 这里其实已经第一次建立了advisor的缓存
+		 */
 		if (isInfrastructureClass(bean.getClass()) || shouldSkip(bean.getClass(), beanName)) {
 			this.advisedBeans.put(cacheKey, Boolean.FALSE);
 			return bean;
 		}
 
 		/**
+		 * 及其重要
 		 * 1. 找到这个bean能匹配到的 所有拦截器
 		 *   A. 扫描所有的@Aspectj注解的类，分析这个类中的方法，重点是@pointCut注解和@Around @Before等advisor注解，收集起来
 		 *   B. advisor类型注解的注解参数解析，找到里面的pointcut表达式，全部封装成advisor对象
 		 *   C. 给指定的bean匹配advisor对象
+		 *   D. 还有一类advisor对象的来源是 自己手动实现PointcutAdvisor接口的能IOC的类
 		 * */
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
 		if (specificInterceptors != DO_NOT_PROXY) {
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
 			/**
+			 * 及其重要
 			 * 2. 如果有匹配到的advisor对象，则进行proxy。目标bean封装成SingletonTargetSource对象
 			 */
 			Object proxy = createProxy(

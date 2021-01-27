@@ -18,6 +18,7 @@ package org.springframework.aop.framework.autoproxy;
 
 import org.springframework.aop.Advisor;
 import org.springframework.aop.TargetSource;
+import org.springframework.aop.interceptor.ExposeInvocationInterceptor;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -102,21 +103,26 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 		/**
 		 * 极其重要
 		 *  =收集= 所有候选的切面advisor
-		 * 1. 先找到有@Aspectj注解的bean
+		 * 1. 先找到接口类型的advisor和有@Aspectj注解的bean
 		 * 2. 将找到的bean的元信息封装成AspectjMetad对象
+		 * 3. 最终封装成advisor对象，这个对象只进行了advise收集，还没有进行和@PointCut的真实属性进行绑定
+		 *    比如：@Around（value=“pc1”） 这里的pc1实际是一个@pointcut标注的方法，这一步还只是“pc1”，并没有进行@pointcut的绑定
 		 */
 		List<Advisor> candidateAdvisors = findCandidateAdvisors();
 		/**
 		 * 极其重要
 		 *  =筛选= 从候选切面里面找到合格的切面
 		 *  就是一个匹配过程，匹配被代理的bean是否满足上面收集的adviosr的piontcut
+		 *  调用两类match方法，class、method
 		 */
 		List<Advisor> eligibleAdvisors = findAdvisorsThatCanApply(candidateAdvisors, beanClass, beanName);
-		// 这一步不一定都有处理 如果是纯注解的aop则什么都不做，
-		// 如果是xml形式的aop，会插入一个ExposeInvocationInterceptor 拦截器到eligibleAdvisors list首部
+		// 这一步不一定都有处理 如果是纯配置的aop则什么都不做，
+		// 如果spring容器中有@AspectJ注解，会插入一个ExposeInvocationInterceptor 拦截器到eligibleAdvisors list首部，会拦截到一些信息放到ThreadLocal中
+		// 这个ExposeInvocationInterceptor是一个静态的类，有个ThreadLocal的属性，绑定了当前线程的这个bean的Aop代理方法的元信息，包括入参等。
+		// 所以，在注解的AOP的增强逻辑中，完全可以由 ExposeInvocationInterceptor.currentInvocation() 获取当前被增强方法的所有信息。
 		extendAdvisors(eligibleAdvisors);
 		if (!eligibleAdvisors.isEmpty()) {
-			// 利用@Order @Priority等注解进行advisor切面排序
+			// advisor切面排序 先接口后注解；先porder后order；自然排序
 			eligibleAdvisors = sortAdvisors(eligibleAdvisors);
 		}
 		return eligibleAdvisors;
@@ -132,8 +138,8 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 	}
 
 	/**
-	 * Search the given candidate Advisors to find all Advisors that
-	 * can apply to the specified bean.
+	 * 搜索给定的候选Advisor，以查找可以应用于指定bean的所有Advisor。
+	 *
 	 * @param candidateAdvisors the candidate Advisors
 	 * @param beanClass the target's bean class
 	 * @param beanName the target's bean name
@@ -152,6 +158,7 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 			 * 2. 从所有的advisor里面找到目标对象bean的拦截器
 			 * 		1. 引介增强
 			 * 		2. 普通增强，模糊匹配
+			 * 	    3. 所谓的“找到”就是看两个级别的匹配，先是类级别的classfilter，再是方法级别的methodmatcher
 			 */
 			return AopUtils.findAdvisorsThatCanApply(candidateAdvisors, beanClass);
 		}

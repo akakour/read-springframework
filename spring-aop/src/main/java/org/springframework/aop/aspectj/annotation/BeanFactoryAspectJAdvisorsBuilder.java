@@ -74,7 +74,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 
 
 	/**
-	 * 在当前的bean工厂中查找带有AspectJ注释的aspect bean,
+	 * 在当前的bean工厂中查找带有AspectJ注释的bean,
 	 * 然后返回代表它们的Spring AOP Advisor列表.
 	 *
 	 * <p>Creates a Spring Advisor for each AspectJ advice method.
@@ -82,9 +82,13 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 	 * @see #isEligibleBean
 	 */
 	public List<Advisor> buildAspectJAdvisors() {
+		// 缓存
 		List<String> aspectNames = this.aspectBeanNames;
 
 		if (aspectNames == null) {
+			// 锁实例,再次获取。
+			// 因为这个方法是public类型的，可能在spring启动过程中，虽然spring本身启动是单线程的，
+			// 但是不能保证使用的人在里面写一些postprocessor高出一些多线程来手动调本方法，所以加锁之后再次获取一下比较保险。
 			synchronized (this) {
 				aspectNames = this.aspectBeanNames;
 				if (aspectNames == null) {
@@ -104,22 +108,22 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 						if (beanType == null) {
 							continue;
 						}
-						// 3. 是否是有@Aspectj注解的类
+						// 3. 是否是有@Aspect注解的类
 						if (this.advisorFactory.isAspect(beanType)) {
-							//4. 有@Aspectj就添加
+							//4. 有@Aspect就添加
 							aspectNames.add(beanName);
-							//5. 常规操作，如果是aspectj的类就反射拿到这个类的所有元信息，以便后续操作
+							//5. 如果是aspectj的类就反射拿到这个类的所有元信息，以便后续操作
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {
-								//6. 创建一个持有aspectj类的过程，委托这个工厂处理
+								//6. 如果@AspectJ注解类的Ajtype的preClause种类是单例的 （AspectJ的概念，不必深究，一般基本都是Singleton的）
 								MetadataAwareAspectInstanceFactory factory =
 										new BeanFactoryAspectInstanceFactory(this.beanFactory, beanName);
-
 								/**
 								 * 7. 极其重要
-								 * 创建advisor切面
+								 * 创建advisor切面 可能多个
 								 */
 								List<Advisor> classAdvisors = this.advisorFactory.getAdvisors(factory);
+								// 依类型 分不同缓存
 								if (this.beanFactory.isSingleton(beanName)) {
 									this.advisorsCache.put(beanName, classAdvisors);
 								}
@@ -129,7 +133,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 								advisors.addAll(classAdvisors);
 							}
 							else {
-								// Per target or per this.
+								// Per target or per this. preTarget或者preThis类型，不必深究
 								if (this.beanFactory.isSingleton(beanName)) {
 									throw new IllegalArgumentException("Bean with name '" + beanName +
 											"' is a singleton, but aspect instantiation model is not singleton");
@@ -137,6 +141,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 								MetadataAwareAspectInstanceFactory factory =
 										new PrototypeAspectInstanceFactory(this.beanFactory, beanName);
 								this.aspectFactoryCache.put(beanName, factory);
+								// 同样也调用了getAdvisors方法得到advisor切面（可能多个）
 								advisors.addAll(this.advisorFactory.getAdvisors(factory));
 							}
 						}

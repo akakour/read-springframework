@@ -46,11 +46,15 @@ public abstract class AspectJProxyUtils {
 			for (Advisor advisor : advisors) {
 				// Be careful not to get the Advice without a guard, as
 				// this might eagerly instantiate a non-singleton AspectJ aspect
+				//1. 判断是否有@Aspect注解引入的advisor
 				if (isAspectJAdvice(advisor)) {
 					foundAspectJAdvice = true;
 				}
 			}
 			if (foundAspectJAdvice && !advisors.contains(ExposeInvocationInterceptor.ADVISOR)) {
+				// 在责任链头部加入一个ExposeInvocationInterceptor.ADVISOR的advisor
+				// 这个advisor的pointcut是PointCut.True，即对所有的方法拦截，advise是，将MethodInvocation（链式调用中的joinpoint放到
+				//                        ExposeInvocationInterceptor的Threadlocal中，可以在任意地方通过 ExposeInvocationInterceptor.currentInvocation() 拿到）
 				advisors.add(0, ExposeInvocationInterceptor.ADVISOR);
 				return true;
 			}

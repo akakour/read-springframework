@@ -110,6 +110,11 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 	}
 
 
+	/**
+	 *  获取aspectj类的advisor
+	 * @param aspectInstanceFactory 这个类是对每一个aspect注解类的单独封装
+	 * @return
+	 */
 	@Override
 	public List<Advisor> getAdvisors(MetadataAwareAspectInstanceFactory aspectInstanceFactory) {
 		Class<?> aspectClass = aspectInstanceFactory.getAspectMetadata().getAspectClass();
@@ -122,11 +127,12 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 				new LazySingletonAspectInstanceFactoryDecorator(aspectInstanceFactory);
 
 		List<Advisor> advisors = new ArrayList<>();
-		// 遍历不含@PointCut注解的方法：aop首要关注的是advise，从advise出发可以找到piontcut，所以先找不含@pointcut注解的方法
+		/**
+		 * 遍历不含@PointCut注解的方法：aop首要关注的是advise，从advise出发可以找到piontcut，所以先找不含@pointcut注解的方法
+ 		 */
 		for (Method method : getAdvisorMethods(aspectClass)) {
 			/**
 			 * 将advisor注解的方法封装成InstantiationModelAwarePointcutAdvisorImpl （advisor）对象
-			 * 1.
 			 */
 			Advisor advisor = getAdvisor(method, lazySingletonAspectInstanceFactory, advisors.size(), aspectName);
 			if (advisor != null) {
@@ -140,7 +146,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 			advisors.add(0, instantiationAdvisor);
 		}
 
-		// Find introduction fields.
+		// 引介属性
 		for (Field field : aspectClass.getDeclaredFields()) {
 			Advisor advisor = getDeclareParentsAdvisor(field);
 			if (advisor != null) {
@@ -153,11 +159,13 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 	/**
 	 *  返回aspectj类中所有的不含@piontcut注解的方法
+	 *   注意 是所有方法！ 不管你有么有advisor相关注解
 	 * @param aspectClass
 	 * @return
 	 */
 	private List<Method> getAdvisorMethods(Class<?> aspectClass) {
 		final List<Method> methods = new ArrayList<>();
+		// dowithMethods方法是函数接口，
 		ReflectionUtils.doWithMethods(aspectClass, method -> {
 			// Exclude pointcuts
 			if (AnnotationUtils.getAnnotation(method, Pointcut.class) == null) {
@@ -218,6 +226,13 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 				this, aspectInstanceFactory, declarationOrderInAspect, aspectName);
 	}
 
+	/**
+	 *  获取@Around @Before等的PointCut表达式
+	 *   例： @Around（value=“pointcut1()”） --->  pointcut1()
+	 * @param candidateAdviceMethod
+	 * @param candidateAspectClass
+	 * @return
+	 */
 	@Nullable
 	private AspectJExpressionPointcut getPointcut(Method candidateAdviceMethod, Class<?> candidateAspectClass) {
 		/**
@@ -232,7 +247,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 			return null;
 		}
 
-		// 友封装了一层，重点是直接将AspectJAnnotation的pointcut表达式复制给AspectJExpressionPointcut了
+		// 又封装了一层，重点是直接将AspectJAnnotation的pointcut表达式复制给AspectJExpressionPointcut了
 		AspectJExpressionPointcut ajexp =
 				new AspectJExpressionPointcut(candidateAspectClass, new String[0], new Class<?>[0]);
 		ajexp.setExpression(aspectJAnnotation.getPointcutExpression());
