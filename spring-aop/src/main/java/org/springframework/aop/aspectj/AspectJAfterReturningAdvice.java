@@ -60,9 +60,19 @@ public class AspectJAfterReturningAdvice extends AbstractAspectJAdvice
 		setReturningNameNoCheck(name);
 	}
 
+	/**
+	 * @AfterReturning 的具体调用逻辑
+	 * @param returnValue
+	 * @param method
+	 * @param args
+	 * @param target
+	 * @throws Throwable
+	 */
 	@Override
 	public void afterReturning(@Nullable Object returnValue, Method method, Object[] args, @Nullable Object target) throws Throwable {
+		// 通过判断返回值类型匹配，是否需要调用增强
 		if (shouldInvokeOnReturnValueOf(method, returnValue)) {
+			// 反射调用具体的方法
 			invokeAdviceMethod(getJoinPointMatch(), returnValue, null);
 		}
 	}

@@ -56,13 +56,22 @@ public class AspectJAfterThrowingAdvice extends AbstractAspectJAdvice
 		setThrowingNameNoCheck(name);
 	}
 
+	/**
+	 * @AfterThrowing 的增强逻辑调用
+	 * @param mi
+	 * @return
+	 * @throws Throwable
+	 */
 	@Override
 	public Object invoke(MethodInvocation mi) throws Throwable {
 		try {
+			// 后续节点调用如果出异常会被catch到，throwable是所有异常的顶级父类
 			return mi.proceed();
 		}
 		catch (Throwable ex) {
+			// 判断是否是需要拦截的异常类型
 			if (shouldInvokeOnThrowing(ex)) {
+				// 调用具体的增强逻辑
 				invokeAdviceMethod(getJoinPointMatch(), null, ex);
 			}
 			throw ex;

@@ -155,14 +155,26 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	}
 
 
+	/**
+	 * 链式调用（责任链）的主方法
+	 * @return
+	 * @throws Throwable
+	 */
 	@Override
 	@Nullable
 	public Object proceed() throws Throwable {
 		//	We start with an index of -1 and increment early.
+		// 第一次调用进来，currentInterceptorIndex=-1，指向调用链List的首位。
+		// 之后每进来一次都会+1，index直到调用链List的最后一位
+		// 最后一位即表示增强调用链已经调用完了，该反射调用真正的被代理方法了。
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
+			/**
+			 * 反射调用真正的被代理方法 method.invoke
+			 */
 			return invokeJoinpoint();
 		}
 
+		// 根据索引从调用链里拿到本次的advisor
 		Object interceptorOrInterceptionAdvice =
 				this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
 		if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
@@ -177,12 +189,22 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 			else {
 				// Dynamic matching failed.
 				// Skip this interceptor and invoke the next in the chain.
+				/**
+				 * 递归
+				 */
 				return proceed();
 			}
 		}
 		else {
 			// It's an interceptor, so we just invoke it: The pointcut will have
 			// been evaluated statically before this object was constructed.
+			/**
+			 * 极其重要
+			 *  链式调用
+			 * springaop的这个链式调用的精髓的是将 this 传递了下去。
+			 * 这样一来，只要下游方法一调用本类的process方法，就又回到了本方法，又可以拿到下一个advisor再次调用
+			 * ---> 可见，如果想写一个责任链，就要想办法将主方法所在类传递到责任节点的方法调用中去，这样就可以回到主方法中来
+			 */
 			return ((MethodInterceptor) interceptorOrInterceptionAdvice).invoke(this);
 		}
 	}

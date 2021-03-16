@@ -41,12 +41,20 @@ public class AspectJAfterAdvice extends AbstractAspectJAdvice
 	}
 
 
+	/**
+	 *  后置增强@After的增强逻辑
+	 * @param mi
+	 * @return
+	 * @throws Throwable
+	 */
 	@Override
 	public Object invoke(MethodInvocation mi) throws Throwable {
 		try {
+			//1. 先进行后一个节点的火炬传递
 			return mi.proceed();
 		}
 		finally {
+			//2. 等本节点后面的火炬传递完成之后，再来调用本节点的增强逻辑（finally一定会调用到）。这里压栈比较深
 			invokeAdviceMethod(getJoinPointMatch(), null, null);
 		}
 	}

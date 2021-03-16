@@ -251,7 +251,7 @@ public abstract class AopUtils {
 			// 拿到这个类及其父类、接口的所有方法
 			Method[] methods = ReflectionUtils.getAllDeclaredMethods(clazz);
 			for (Method method : methods) {
-				// 对每个方法进行 MethodMatcher.match 方法调用。如果调用结果为true，则表示当前切面对这个类起作用，将会加入aop责任链
+				// 对每个方法进行 MethodMatcher.match 方法调用。只要有一个方法被匹配到，则表示当前切面对这个类起作用，将会加入aop责任链
 				if (introductionAwareMethodMatcher != null ?
 						introductionAwareMethodMatcher.matches(method, targetClass, hasIntroductions) :
 						methodMatcher.matches(method, targetClass)) {

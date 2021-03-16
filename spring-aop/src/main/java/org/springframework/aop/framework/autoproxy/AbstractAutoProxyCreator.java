@@ -448,7 +448,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	}
 
 	/**
-	 * Create an AOP proxy for the given bean.
+	 * 为给定的bean创建一个AOP代理。
 	 * @param beanClass the class of the bean
 	 * @param beanName the name of the bean
 	 * @param specificInterceptors the set of interceptors that is
@@ -465,6 +465,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			AutoProxyUtils.exposeTargetClass((ConfigurableListableBeanFactory) this.beanFactory, beanName, beanClass);
 		}
 
+		// 创建代理工厂类，每一个bean都有相对应的代理工厂。
 		ProxyFactory proxyFactory = new ProxyFactory();
 		proxyFactory.copyFrom(this);
 
@@ -478,14 +479,18 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		}
 
 		/**
-		 * 1. 将advisor在进行统一封装
+		 *
+		 * 核心： 统一
+		 *
+		 * 1. 将advisor在进行统一封装。由于不同的advisor（around before after ）顶级父接口是不一样的，
+		 *        所有这一步用适配器模式将所有的差异抹平。也自动增强了部分advise的逻辑，意会即可。设计有点巧妙
 		 * a. 前面的advisor
 		 * b。自定义的全局MethodInterceptor
 		 */
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
-		proxyFactory.addAdvisors(advisors);
-		proxyFactory.setTargetSource(targetSource);
-		customizeProxyFactory(proxyFactory);
+		proxyFactory.addAdvisors(advisors); // proxyfactory持有了抹平差异的advisor
+		proxyFactory.setTargetSource(targetSource); //proxyfactory持有了被代理对象bean
+		customizeProxyFactory(proxyFactory); // 埋点
 
 		proxyFactory.setFrozen(this.freezeProxy);
 		if (advisorsPreFiltered()) {
@@ -494,6 +499,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 		/**
 		 * 2.创建代理对象，两种方式：jdk和cglib
+		 *   根据 @EnableAspectJAutoProxy的proxyTargetClass属性选择代理方式进行代理
 		 *  目标对象类和符合这个类的advisor都已经封装到proxyfactory中
 		 */
 		return proxyFactory.getProxy(getProxyClassLoader());
@@ -529,6 +535,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	/**
 	 * 确定给定bean的advisor，包括适用于Advisor接口的特定拦截器以及公共拦截器。
+	 *  主要进行advisor的再包装
 	 * @param beanName the name of the bean
 	 * @param specificInterceptors the set of interceptors that is
 	 * specific to this bean (may be empty, but not null)
@@ -567,6 +574,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			 * 将所有的advisor进行装饰
 			 * 1. 本身就是@AspectJ引入的advisor，原样返回
 			 * 2. 如果是自定义的共同（全局）拦截器（在前一步引入并MethodIntercept）封装成DefaultPointcutAdvisor 返回
+			 *
+			 * 这一步的作用是： 由于前一步筛选出来的不同的advisor，其advise（MethodInterceptor）的逻辑是不一样的，
+			 *                比如 @before，实际使用中，只需要在@Before的advise中写before要做的事情，并没有写mi.process，这一步 火炬传递 就是由框架做的
+			 *                框架在哪里，怎么做呢？ 那就是在这一步中的适配（装饰wrap）,判断如果是before的 则增强一步火炬传递的逻辑，不需要使用者手动去做了。
 			 */
 			advisors[i] = this.advisorAdapterRegistry.wrap(allInterceptors.get(i));
 		}

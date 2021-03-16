@@ -106,6 +106,12 @@ public class ThrowsAdviceInterceptor implements MethodInterceptor, AfterAdvice {
 	}
 
 
+	/**
+	 * 完成 @AfterThrowing的链式调用逻辑 （try catch，有异常 反射调用增强逻辑）
+	 * @param mi
+	 * @return
+	 * @throws Throwable
+	 */
 	@Override
 	public Object invoke(MethodInvocation mi) throws Throwable {
 		try {
@@ -114,6 +120,7 @@ public class ThrowsAdviceInterceptor implements MethodInterceptor, AfterAdvice {
 		catch (Throwable ex) {
 			Method handlerMethod = getExceptionHandler(ex);
 			if (handlerMethod != null) {
+				// 反射调用增强逻辑
 				invokeHandlerMethod(mi, ex, handlerMethod);
 			}
 			throw ex;

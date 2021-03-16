@@ -623,6 +623,9 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 			@Nullable JoinPointMatch jpMatch, @Nullable Object returnValue, @Nullable Throwable ex)
 			throws Throwable {
 
+		// 调用增强逻辑的具体方法，如果有入参还是传递入参
+		// getJoinPoint 从TL中拿到，因为如果是注解的aop，第一个advisor肯定会把joinpoint等信息放入TL
+		// 通过工具类ExposeInvocationInterceptor.currentInvocation()拿到methodinvocation
 		return invokeAdviceMethodWithGivenArgs(argBinding(getJoinPoint(), jpMatch, returnValue, ex));
 	}
 

@@ -35,6 +35,12 @@ import org.springframework.util.ObjectUtils;
 @SuppressWarnings("serial")
 abstract class TransactionAttributeSourcePointcut extends StaticMethodMatcherPointcut implements Serializable {
 
+	/**
+	 * 事务切面的pointcut的具体match逻辑
+	 * @param method
+	 * @param targetClass
+	 * @return
+	 */
 	@Override
 	public boolean matches(Method method, Class<?> targetClass) {
 		if (TransactionalProxy.class.isAssignableFrom(targetClass) ||
@@ -42,7 +48,9 @@ abstract class TransactionAttributeSourcePointcut extends StaticMethodMatcherPoi
 				PersistenceExceptionTranslator.class.isAssignableFrom(targetClass)) {
 			return false;
 		}
+		// 1. 注解版的spring中，显式事务拿到的TransactionAttributeSource就是AnnotationTransactionAttributeSource
 		TransactionAttributeSource tas = getTransactionAttributeSource();
+		// 2. AnnotationTransactionAttributeSource不会为空，所以会执行getTransactionAttribute方法，这里面就判断了@Transcational注解
 		return (tas == null || tas.getTransactionAttribute(method, targetClass) != null);
 	}
 

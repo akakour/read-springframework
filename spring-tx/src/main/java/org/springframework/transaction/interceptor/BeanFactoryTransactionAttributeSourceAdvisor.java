@@ -37,6 +37,10 @@ public class BeanFactoryTransactionAttributeSourceAdvisor extends AbstractBeanFa
 	@Nullable
 	private TransactionAttributeSource transactionAttributeSource;
 
+	/**
+	 * 事务切面advisor的 pointcut 重点是他的match方法，
+	 * 值得注意的是，这里将外部配置的 AnnotationTransactionAttributeSource 传递进本类，从而又传递给TransactionAttributeSourcePointcut
+	 */
 	private final TransactionAttributeSourcePointcut pointcut = new TransactionAttributeSourcePointcut() {
 		@Override
 		@Nullable

@@ -54,15 +54,18 @@ public class DefaultAdvisorAdapterRegistry implements AdvisorAdapterRegistry, Se
 
 
 	/**
-	 * 将advisor统一封装
+	 * 将advisor统一包装
 	 * 1. 本身就是advisor的直接返回
-	 * 2. 是MethodInterceptor接口的，封装成DefaultPointcutAdvisor返回，这一步是针对前一步自定义引入的共同Interceptor的advisor
+	 * 2. 是MethodInterceptor接口的，封装成DefaultPointcutAdvisor返回，
+	 *    这一步是针对前一步自定义引入的共同Interceptor的advisor
+	 * 3.如果是其他类型的advisor，比如@Before类型的，通过策略模式进行相应包装
 	 * @param adviceObject
 	 * @return
 	 * @throws UnknownAdviceTypeException
 	 */
 	@Override
 	public Advisor wrap(Object adviceObject) throws UnknownAdviceTypeException {
+		// 1. 已经是advisor的实现
 		if (adviceObject instanceof Advisor) {
 			return (Advisor) adviceObject;
 		}
@@ -70,13 +73,16 @@ public class DefaultAdvisorAdapterRegistry implements AdvisorAdapterRegistry, Se
 			throw new UnknownAdviceTypeException(adviceObject);
 		}
 		Advice advice = (Advice) adviceObject;
+		// 2. 是methodInterceptor类型的
 		if (advice instanceof MethodInterceptor) {
-			// So well-known it doesn't even need an adapter.
+			// DefaultPointcutAdvisor 全匹配类型的advisor
 			return new DefaultPointcutAdvisor(advice);
 		}
+		//3. 是MethodBeforeAdvice，AfterReturningAdvice，ThrowsAdvice类型的
 		for (AdvisorAdapter adapter : this.adapters) {
 			// Check that it is supported.
 			if (adapter.supportsAdvice(advice)) {
+				// DefaultPointcutAdvisor 全匹配类型的advisor
 				return new DefaultPointcutAdvisor(advice);
 			}
 		}
