@@ -113,8 +113,7 @@ public class PropertyPlaceholderHelper {
 	}
 
 	/**
-	 * Replaces all placeholders of format {@code ${name}} with the value returned
-	 * from the supplied {@link PlaceholderResolver}.
+	 * 将格式为{@code $ {name}}的所有占位符替换为提供的{@link PlaceholderResolver}返回的值。
 	 * @param value the value containing the placeholders to be replaced
 	 * @param placeholderResolver the {@code PlaceholderResolver} to use for replacement
 	 * @return the supplied value with placeholders replaced inline
@@ -124,6 +123,13 @@ public class PropertyPlaceholderHelper {
 		return parseStringValue(value, placeholderResolver, new HashSet<>());
 	}
 
+	/**
+	 *  获取${xxx.bbb:nnn}的真实值
+	 * @param value  ${xxx.bbb:nnn}
+	 * @param placeholderResolver 会回调这对象的方法
+	 * @param visitedPlaceholders
+	 * @return
+	 */
 	protected String parseStringValue(
 			String value, PlaceholderResolver placeholderResolver, Set<String> visitedPlaceholders) {
 
@@ -140,23 +146,29 @@ public class PropertyPlaceholderHelper {
 							"Circular placeholder reference '" + originalPlaceholder + "' in property definitions");
 				}
 				// Recursive invocation, parsing placeholders contained in the placeholder key.
+				// 递归 处理${${xxx}}这类写法的注入
 				placeholder = parseStringValue(placeholder, placeholderResolver, visitedPlaceholders);
 				// Now obtain the value for the fully resolved key...
+				// ${xxx.bbb:nnn} 获取xxx.bbb:nnn的真实的值 这里是回调外层定义的方法
 				String propVal = placeholderResolver.resolvePlaceholder(placeholder);
+				// 没有 准备获取xxx.bbb的真实值
 				if (propVal == null && this.valueSeparator != null) {
+					// 获取分隔符 ： 的位置
 					int separatorIndex = placeholder.indexOf(this.valueSeparator);
 					if (separatorIndex != -1) {
 						String actualPlaceholder = placeholder.substring(0, separatorIndex);
+						// 获取 ：后面的默认值
 						String defaultValue = placeholder.substring(separatorIndex + this.valueSeparator.length());
+						// ${xxx.bbb:nnn}  获取xxx.bbb的真实值
 						propVal = placeholderResolver.resolvePlaceholder(actualPlaceholder);
 						if (propVal == null) {
+							// 没有 就取默认值
 							propVal = defaultValue;
 						}
 					}
 				}
 				if (propVal != null) {
-					// Recursive invocation, parsing placeholders contained in the
-					// previously resolved placeholder value.
+					// 递归调用，解析先前解析的占位符值中包含的占位符的情况，以防万一，如果不是占位符套占位符的情况，递归第二次进入判断有无${}就会立马退出
 					propVal = parseStringValue(propVal, placeholderResolver, visitedPlaceholders);
 					result.replace(startIndex, endIndex + this.placeholderSuffix.length(), propVal);
 					if (logger.isTraceEnabled()) {

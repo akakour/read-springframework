@@ -70,8 +70,7 @@ public class BeanDefinitionVisitor {
 
 
 	/**
-	 * Traverse the given BeanDefinition object and the MutablePropertyValues
-	 * and ConstructorArgumentValues contained in them.
+	 *  遍历给定的BeanDefinition对象以及其中包含的MutablePropertyValues和ConstructorArgumentValues。
 	 * @param beanDefinition the BeanDefinition object to traverse
 	 * @see #resolveStringValue(String)
 	 */
@@ -81,6 +80,7 @@ public class BeanDefinitionVisitor {
 		visitFactoryBeanName(beanDefinition);
 		visitFactoryMethodName(beanDefinition);
 		visitScope(beanDefinition);
+		// 如果Bd的MulitiPropertesValue有值，则有可能是占位符形式的，需要处理 @Value("${xxx.bbb:nnn}")中的${xxx.bbb:nnn}会在解析阶段添加到MPV
 		if (beanDefinition.hasPropertyValues()) {
 			visitPropertyValues(beanDefinition.getPropertyValues());
 		}
@@ -141,11 +141,18 @@ public class BeanDefinitionVisitor {
 		}
 	}
 
+	/**
+	 * 访问MulitiPropertyValue并修改其中的占位符为真正的值，从propertySource中。
+	 * @param pvs
+	 */
 	protected void visitPropertyValues(MutablePropertyValues pvs) {
 		PropertyValue[] pvArray = pvs.getPropertyValues();
+		// 遍历MPV的每一个值
 		for (PropertyValue pv : pvArray) {
+			// 如果是占位符的形式 找到相对于的真正的值
 			Object newVal = resolveValue(pv.getValue());
 			if (!ObjectUtils.nullSafeEquals(newVal, pv.getValue())) {
+				// 如果是不一样的值，则会替换原来占位符形式的值
 				pvs.add(pv.getName(), newVal);
 			}
 		}
@@ -169,6 +176,11 @@ public class BeanDefinitionVisitor {
 		}
 	}
 
+	/**
+	 *  通过占位符找到真正的值
+	 * @param value 占位符形式的字符串
+	 * @return
+	 */
 	@SuppressWarnings("rawtypes")
 	@Nullable
 	protected Object resolveValue(@Nullable Object value) {
@@ -210,10 +222,14 @@ public class BeanDefinitionVisitor {
 		else if (value instanceof Map) {
 			visitMap((Map) value);
 		}
+		/**
+		 * 一般来说 @Value 以及xml配置文件<p：xxx>标签注入的都会走到这个分支
+		 */
 		else if (value instanceof TypedStringValue) {
 			TypedStringValue typedStringValue = (TypedStringValue) value;
 			String stringValue = typedStringValue.getValue();
 			if (stringValue != null) {
+				// 通过${xxx.bbb:nnn}从本地配置文件/环境变量中找到真正的值
 				String visitedString = resolveStringValue(stringValue);
 				typedStringValue.setValue(visitedString);
 			}
@@ -283,7 +299,8 @@ public class BeanDefinitionVisitor {
 	}
 
 	/**
-	 * Resolve the given String value, for example parsing placeholders.
+	 * 解决给定的String值，例如解析占位符。
+	 *
 	 * @param strVal the original String value
 	 * @return the resolved String value
 	 */
@@ -293,6 +310,11 @@ public class BeanDefinitionVisitor {
 			throw new IllegalStateException("No StringValueResolver specified - pass a resolver " +
 					"object into the constructor or override the 'resolveStringValue' method");
 		}
+		/**
+		 * 解决 占位符${xxx}的场合
+		 * 核心： 这里会调用到 org.springframework.context.support.PropertySourcesPlaceholderConfigurer#processProperties(org.springframework.beans.factory.config.ConfigurableListableBeanFactory, org.springframework.core.env.ConfigurablePropertyResolver)
+		 * 中定义的匿名对象
+		 */
 		String resolvedValue = this.valueResolver.resolveStringValue(strVal);
 		// Return original String if not modified.
 		return (strVal.equals(resolvedValue) ? strVal : resolvedValue);

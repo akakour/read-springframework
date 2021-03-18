@@ -210,18 +210,26 @@ public abstract class PlaceholderConfigurerSupport extends PropertyResourceConfi
 	}
 
 
+	/**
+	 *  给bean工厂的每个deandefinition 处理${..}占位符
+	 * @param beanFactoryToProcess bean工厂
+	 * @param valueResolver  占位符解析器
+	 */
 	protected void doProcessProperties(ConfigurableListableBeanFactory beanFactoryToProcess,
 			StringValueResolver valueResolver) {
 
+		// 创建visitor访问者，含有占位符解析器
 		BeanDefinitionVisitor visitor = new BeanDefinitionVisitor(valueResolver);
 
 		String[] beanNames = beanFactoryToProcess.getBeanDefinitionNames();
+		// 遍历bd
 		for (String curName : beanNames) {
 			// Check that we're not parsing our own bean definition,
 			// to avoid failing on unresolvable placeholders in properties file locations.
 			if (!(curName.equals(this.beanName) && beanFactoryToProcess.equals(this.beanFactory))) {
 				BeanDefinition bd = beanFactoryToProcess.getBeanDefinition(curName);
 				try {
+					// 访问者模式修改bd的MulitiPropertiesValue 修饰。
 					visitor.visitBeanDefinition(bd);
 				}
 				catch (Exception ex) {

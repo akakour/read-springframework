@@ -203,6 +203,12 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 		return doResolvePlaceholders(text, this.nonStrictHelper);
 	}
 
+	/**
+	 * 无论是本地配置文件还是环境变量都会走到这里
+	 * @param text 类似${xxx}的占位符形式的字符串
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
 	@Override
 	public String resolveRequiredPlaceholders(String text) throws IllegalArgumentException {
 		if (this.strictHelper == null) {
@@ -233,7 +239,19 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 				this.valueSeparator, ignoreUnresolvablePlaceholders);
 	}
 
+	/**
+	 *  解析${...}的包装方法
+	 * @param text
+	 * @param helper
+	 * @return
+	 */
 	private String doResolvePlaceholders(String text, PropertyPlaceholderHelper helper) {
+		/**
+		 // 这里虽然会先调用replacePlaceholders方法，但是在replacePlaceholders方法中，核心只是解析了${xxx.bbb:nnn}中${,},:等所在的index，
+		 // 真正按照xxx.bbb:nnn 或者xxx.bbb找到对应真正值是在getPropertyAsRawString方法。
+		 // getPropertyAsRawString的核心就是调用propertesource 的getProperty方法，无论是环境变量还是本地配置。
+		 *
+		 */
 		return helper.replacePlaceholders(text, this::getPropertyAsRawString);
 	}
 

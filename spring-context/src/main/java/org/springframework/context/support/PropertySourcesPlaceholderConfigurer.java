@@ -110,6 +110,8 @@ public class PropertySourcesPlaceholderConfigurer extends PlaceholderConfigurerS
 
 
 	/**
+	 *  给每个bean定义中MulitProperValue的$ {...}占位符
+	 *
 	 * Processing occurs by replacing ${...} placeholders in bean definitions by resolving each
 	 * against this configurer's set of {@link PropertySources}, which includes:
 	 * <ul>
@@ -127,12 +129,15 @@ public class PropertySourcesPlaceholderConfigurer extends PlaceholderConfigurerS
 	@Override
 	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
 		if (this.propertySources == null) {
+			// propertySources 有一个List<PropertySource<?>> 的属性 存放env和本地配置文件。
 			this.propertySources = new MutablePropertySources();
 			if (this.environment != null) {
 				this.propertySources.addLast(
+						// 环境变量
 					new PropertySource<Environment>(ENVIRONMENT_PROPERTIES_PROPERTY_SOURCE_NAME, this.environment) {
 						@Override
 						@Nullable
+						// 重写 T 的getProperty方法
 						public String getProperty(String key) {
 							return this.source.getProperty(key);
 						}
@@ -143,9 +148,11 @@ public class PropertySourcesPlaceholderConfigurer extends PlaceholderConfigurerS
 				PropertySource<?> localPropertySource =
 						new PropertiesPropertySource(LOCAL_PROPERTIES_PROPERTY_SOURCE_NAME, mergeProperties());
 				if (this.localOverride) {
+					// 本地配置优先于环境变量
 					this.propertySources.addFirst(localPropertySource);
 				}
 				else {
+					// 默认情况下，本地配置低于环境配置，所以，才可以被命令行覆盖
 					this.propertySources.addLast(localPropertySource);
 				}
 			}
@@ -154,13 +161,17 @@ public class PropertySourcesPlaceholderConfigurer extends PlaceholderConfigurerS
 			}
 		}
 
+		// 处理${}占位符
 		processProperties(beanFactory, new PropertySourcesPropertyResolver(this.propertySources));
 		this.appliedPropertySources = this.propertySources;
 	}
 
 	/**
-	 * Visit each bean definition in the given bean factory and attempt to replace ${...} property
-	 * placeholders with values from the given properties.
+	 *  访问给定bean工厂中的每个bean定义，并尝试用给定属性中的值替换$ {...}属性占位符。
+	 *
+	 * @param beanFactoryToProcess bean工厂，含有解析完的所有的bd
+	 * @param propertyResolver 占位符解析器
+	 * @throws BeansException
 	 */
 	protected void processProperties(ConfigurableListableBeanFactory beanFactoryToProcess,
 			final ConfigurablePropertyResolver propertyResolver) throws BeansException {
@@ -169,9 +180,13 @@ public class PropertySourcesPlaceholderConfigurer extends PlaceholderConfigurerS
 		propertyResolver.setPlaceholderSuffix(this.placeholderSuffix);
 		propertyResolver.setValueSeparator(this.valueSeparator);
 
+		/**
+		 * @Value等 占位符替换处理会调用到valueResolver，从而调用到这里的匿名类
+		 */
 		StringValueResolver valueResolver = strVal -> {
 			String resolved = (this.ignoreUnresolvablePlaceholders ?
 					propertyResolver.resolvePlaceholders(strVal) :
+					// 默认走后面这个
 					propertyResolver.resolveRequiredPlaceholders(strVal));
 			if (this.trimValues) {
 				resolved = resolved.trim();
@@ -179,6 +194,7 @@ public class PropertySourcesPlaceholderConfigurer extends PlaceholderConfigurerS
 			return (resolved.equals(this.nullValue) ? null : resolved);
 		};
 
+		// 正式开始处理占位符 值得注意的是，这里的valueResolver引用了propertyResolver，而propertyResolver中有propertiesSource
 		doProcessProperties(beanFactoryToProcess, valueResolver);
 	}
 
