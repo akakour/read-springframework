@@ -129,6 +129,7 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 */
 	/**
 	 * 父类的钩子方法实现
+	 * @see AnnotationConfigWebApplicationContext 会进入
 	 *
 	 * @throws BeansException
 	 */
@@ -145,7 +146,9 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 			beanFactory.setSerializationId(getId());
 			//定制BeanFactory： 设置bean是否可以被覆盖，是否可以循环依赖
 			customizeBeanFactory(beanFactory);
-			//极其重要： --> 模板模式 --> 钩子方法，由子类去实现
+			/**
+			 * 极其重要： --> 模板模式 --> 钩子方法，由子类去实现
+			 */
 			loadBeanDefinitions(beanFactory);
 			synchronized (this.beanFactoryMonitor) {
 				this.beanFactory = beanFactory;
