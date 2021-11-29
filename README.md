@@ -4,6 +4,11 @@ This is the home of the Spring Framework: the foundation for all [Spring project
 
 Spring provides everything required beyond the Java programming language for creating enterprise applications for a wide range of scenarios and architectures. Please read the [Overview](https://docs.spring.io/spring/docs/current/spring-framework-reference/overview.html#spring-introduction) section as reference for a more complete introduction.
 
+## 源码解析
+以最为原始的xml配置形式的spring为入口，大致梳理了springioc和aop的核心流程。参见：[源码解析](https://github.com/akakour/read-springframework/wiki/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90)
+
+---
+
 ## Code of Conduct
 
 This project is governed by the [Spring Code of Conduct](CODE_OF_CONDUCT.adoc). By participating, you are expected to uphold this code of conduct. Please report unacceptable behavior to spring-code-of-conduct@pivotal.io.
